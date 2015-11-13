@@ -1,0 +1,16 @@
+cpus = 1
+book = ../tests/book.dta
+game_rounds = 5
+title = basic
+adjudicate = 400
+
+# now we have the player definitions
+# --
+
+player = time_30
+invoke = ../player/leiserchess
+fis = 30 0.1
+
+player = time_15
+invoke = ../player/leiserchess
+fis = 15 0.1
