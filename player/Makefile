@@ -25,7 +25,7 @@ endif
 
 #CFLAGS = -std=c99 -Wall -fcilkplus
 ifeq ($(DEBUG),1)
-	CFLAGS += -O3 -fcilkplus -DDEBUG $(PFLAG)
+	CFLAGS += -O0 -DDEBUG $(PFLAG)
 else
 	CFLAGS += -O3 -fcilkplus -DNDEBUG $(PFLAG)
 endif

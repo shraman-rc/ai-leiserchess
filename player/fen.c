@@ -316,7 +316,6 @@ static int get_sq_from_str(char *fen, int *c_count, int *sq) {
 int fen_to_pos(position_t *p, char *fen) {
   static  position_t dmy1, dmy2;
 
-
   // these sentinels simplify checking previous
   // states without stepping past null pointers.
   dmy1.key = 0;

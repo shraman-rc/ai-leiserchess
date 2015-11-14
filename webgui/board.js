@@ -888,18 +888,19 @@ var Board = function() {
   };
 
   this.shootLaser = function() {
-    this.drawLaser('#FF0000', 'rgba(170,220,160,0.9)');
+    this.drawLaser('#FF0000', 'rgba(170,220,160,0.9)', 'rgba(200,100,90,0.4)');
     this.victim = this.laserTarget(this.turn);
     if (this.victim) {
       var hitCol = this.victim.position[0];
       var hitRow = 1*this.victim.position[1];
       this.board[hitCol][hitRow] = null;
     }
+    //this.drawLaser('#FF00FF', 'rgba(170,220,255,0.9)');
     this.switchPlayer();
   };
 
   this.shootLaserIdle = function() {
-    this.drawLaser('#FF0000', 'rgba(170,220,160,0.9)');
+    this.drawLaser('#FF0000', 'rgba(170,220,160,0.9)', 'rgba(200,100,90,0.4)');
     this.victim = this.laserTarget(this.turn);
     if (this.victim) {
       var hitCol = this.victim.position[0];
@@ -937,7 +938,7 @@ var Board = function() {
     ctx.clearRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
   }
 
-  this.drawLaser = function(strokeColor, fillColor) {
+  this.drawLaser = function(strokeColor, fillColor, fillColor2) {
     var laserCanvas = document.getElementById('laserCanvas');
     var ctx = laserCanvas.getContext('2d');
     ctx.strokeStyle = strokeColor;
@@ -959,7 +960,17 @@ var Board = function() {
     }
 
     var piece = null;
+    var hitsomething = false;
+    var skip_direction_change = false;
+    var previous_direction = null;
+    var freeze_color = this.turn == "black" ? "white" : "black";
     while (true) {
+      if (skip_direction_change) {
+        direction = previous_direction;
+        skip_direction_change = false;
+      } else {
+        previous_direction = direction;
+      }
       position[0] += transform[direction][0];
       position[1] += transform[direction][1];
       if (position[0] < 0 || position[0] >= NUM_COLS
@@ -973,20 +984,46 @@ var Board = function() {
       if (piece !== null) {
         coord = this.posToCoord(position);
         ctx.lineTo(coord[0], coord[1]);
-
         direction = piece.laserResult(direction);
 
         if (direction === 's') {
           // Stop
-          break;
+          if (hitsomething) {
+            break;
+          } else {
+            //fillColor = fillColor2;
+            hitsomething = true;
+            skip_direction_change = true;
+          }
         } else if (direction === 'x') {
-          // Dead
-          ctx.fillStyle = fillColor;
-          ctx.fillRect(position[0] * PIECE_SIZE,
-                       (NUM_ROWS - position[1] - 1) * PIECE_SIZE,
-                       PIECE_SIZE - 2 * PIECE_MARGIN,
-                       PIECE_SIZE - 2 * PIECE_MARGIN);
-          break;
+          if (hitsomething && piece.color == freeze_color) {
+            // Frozen
+            ctx.fillStyle = fillColor2;
+            ctx.fillRect(position[0] * PIECE_SIZE,
+                         (NUM_ROWS - position[1] - 1) * PIECE_SIZE,
+                         PIECE_SIZE - 2 * PIECE_MARGIN,
+                         PIECE_SIZE - 2 * PIECE_MARGIN);
+            break;
+          } else {
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(position[0] * PIECE_SIZE,
+                         (NUM_ROWS - position[1] - 1) * PIECE_SIZE,
+                         PIECE_SIZE - 2 * PIECE_MARGIN,
+                         PIECE_SIZE - 2 * PIECE_MARGIN);
+            skip_direction_change = true;
+            hitsomething = true;
+          }
+        } else if (piece.color == freeze_color) {
+            // Reflecting?
+            if (hitsomething) {
+              ctx.fillStyle = fillColor2;
+            } else {
+              ctx.fillStyle = fillColor2;
+            }
+            ctx.fillRect(position[0] * PIECE_SIZE,
+                         (NUM_ROWS - position[1] - 1) * PIECE_SIZE,
+                         PIECE_SIZE - 2 * PIECE_MARGIN,
+                         PIECE_SIZE - 2 * PIECE_MARGIN);
         }
       }
     }

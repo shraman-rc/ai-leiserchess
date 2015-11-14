@@ -227,7 +227,7 @@ $(document).ready(function () {
         $('#clock-stop-button').attr('disabled', 'disabled');
         $('#clock-reset-button').attr('disabled', 'disabled');
         board.lookAhead(lastMove, moveUnsafeCallback);
-        board.drawLaser('rgba(221,221,51,0.9)', 'rgba(170,220,160,0.4)');
+        board.drawLaser('rgba(221,221,51,0.9)', 'rgba(170,220,160,0.4)', 'rgba(200,100,90,0.4)');
       };
     }(text);
     board.move(text, moveAnimatedCallback, moveInvalidCallback);

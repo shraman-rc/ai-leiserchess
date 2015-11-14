@@ -173,7 +173,6 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
 
     bool cutoff = search_process_score(node, mv, mv_index, &result, SEARCH_PV);
     if (cutoff) {
-      node->abort = true;
       break;
     }
   }
@@ -239,7 +238,7 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
   initialize_root_node(&rootNode, alpha, beta, depth, ply, p);
 
 
-  assert(rootNode.best_score == rootNode.alpha);  // initial conditions
+  assert(rootNode.best_score == alpha);  // initial conditions
 
   searchNode next_node;
   next_node.subpv[0] = 0;
@@ -307,7 +306,7 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
              "score = %d, best = %d, alpha = %d\n", score, rootNode.best_score, rootNode.alpha);
 
     if (score > rootNode.best_score) {
-      tbassert(score > alpha, "score: %d, alpha: %d\n", score, rootNode.alpha);
+      tbassert(score > rootNode.alpha, "score: %d, alpha: %d\n", score, rootNode.alpha);
 
       rootNode.best_score = score;
       pv[0] = mv;

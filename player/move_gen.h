@@ -8,7 +8,6 @@
 #include <stddef.h>
 
 #define MAX_NUM_MOVES 128      // real number = 7 x (8 + 3) + 1 x (8 + 4) = 89
-
 #define MAX_PLY_IN_SEARCH 100  // up to 100 ply
 #define MAX_PLY_IN_GAME 4096   // long game!  ;^)
 
@@ -20,13 +19,12 @@
 #define ARR_WIDTH 16
 #define ARR_SIZE (ARR_WIDTH * ARR_WIDTH)
 
-// board is 10 x 10
+// board is 8 x 8 or 10 x 10
 #define BOARD_WIDTH 10
 
 typedef int square_t;
 typedef int rnk_t;
 typedef int fil_t;
-
 
 #define FIL_ORIGIN ((ARR_WIDTH - BOARD_WIDTH) / 2)
 #define RNK_ORIGIN ((ARR_WIDTH - BOARD_WIDTH) / 2)
@@ -138,7 +136,6 @@ typedef struct victims_t {
 
 typedef struct position {
   piece_t      board[ARR_SIZE];
-  bool      blocked[ARR_SIZE];
   struct position  *history;     // history of position
   uint64_t     key;              // hash key
   int          ply;              // Even ply are White, odd are Black
@@ -189,7 +186,7 @@ bool is_ILLEGAL(victims_t victims);
 bool is_KO(victims_t victims);
 bool zero_victims(victims_t victims);
 bool victim_exists(victims_t victims);
+
 void mark_laser_path(position_t *p, char *laser_map, color_t c,
                      char mark_mask);
-
 #endif  // MOVE_GEN_H

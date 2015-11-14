@@ -39,6 +39,7 @@ char  VERSION[] = "1038";
 // -----------------------------------------------------------------------------
 
 static FILE *OUT;
+static FILE *IN;
 
 // Options for UCI interface
 
@@ -60,6 +61,7 @@ extern int PCENTRAL;
 extern int KFACE;
 extern int KAGGRESSIVE;
 extern int MOBILITY;
+extern int PAWNPIN;
 
 // defined in move_gen.c
 extern int USE_KO;
@@ -67,7 +69,6 @@ extern int USE_KO;
 // defined in tt.c
 extern int USE_TT;
 extern int HASH;
-extern int PAWNPIN;
 
 // struct for manipulating options below
 typedef struct {
@@ -89,9 +90,9 @@ static int_options iopts[] = {
   // ---------------------------------------------------------------------------------------------
   { "hattack",                 &HATTACK,   0.06 * PAWN_EV_VALUE,  0,              PAWN_EV_VALUE },
   { "mobility",               &MOBILITY,   0.06 * PAWN_EV_VALUE,  0,              PAWN_EV_VALUE },
-  {"pawnpin",                  &PAWNPIN,   0.6  * PAWN_EV_VALUE,  0,              PAWN_EV_VALUE},
-  { "kaggressive",         &KAGGRESSIVE,   3.0 * PAWN_EV_VALUE,   0,              PAWN_EV_VALUE },
+  { "kaggressive",         &KAGGRESSIVE,   3.0 * PAWN_EV_VALUE,   0,              3.0 * PAWN_EV_VALUE },
   { "kface",                     &KFACE,   0.5 * PAWN_EV_VALUE,   0,              PAWN_EV_VALUE },
+  { "pawnpin",                 &PAWNPIN,   0.4 * PAWN_EV_VALUE,   0,              PAWN_EV_VALUE },
   { "pbetween",               &PBETWEEN,   0.3 * PAWN_EV_VALUE,   -PAWN_EV_VALUE, PAWN_EV_VALUE },
   { "pcentral",               &PCENTRAL,   0.1 * PAWN_EV_VALUE,   -PAWN_EV_VALUE, PAWN_EV_VALUE },
   { "hash",                       &HASH,   16,                    1,              MAX_HASH   },
@@ -401,6 +402,11 @@ int main(int argc, char *argv[]) {
   setbuf(stdin, NULL);
 
   OUT = stdout;
+  if (argc > 1) {
+    IN = fopen(argv[1], "r");
+  } else {
+    IN = stdin;
+  }
 
   init_options();
   init_zob();
@@ -412,17 +418,28 @@ int main(int argc, char *argv[]) {
   // big enough to support 4000 moves
   char *istr = (char *) malloc(sizeof(char) * 24000);
 
+
   tt_make_hashtable(HASH);   // initial hash table
   fen_to_pos(&gme[ix], "");  // initialize with an actual position
+
+  //  Check to make sure we don't loop infinitely if we don't get input.
+  bool saw_input = false;
+  double start_time = milliseconds();
 
   while (true) {
     int n;
 
-    if (fgets(istr, 20478, stdin) != NULL) {
+    if (fgets(istr, 20478, IN) != NULL) {
       int token_count = parse_string_q(istr, tok);
 
       if (token_count == 0) {  // no input
+        if (!saw_input && milliseconds() - start_time > 1000*5) {
+          fprintf(stdout, "Received no commands after 5 seconds, terminating program\n");
+          break;
+        }
         continue;
+      } else {
+        saw_input = true;
       }
 
       if (strcmp(tok[0], "quit") == 0) {

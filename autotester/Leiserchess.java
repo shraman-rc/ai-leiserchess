@@ -134,6 +134,7 @@ private int square_of(int f, int r) {
 // Output:   index of where board description ends or 0 if parsing error
 //          (populated) board position struct
 private int parse_fen_board() {
+  //String fenstring = "ss7/1sw4NE1/1sw4NE1/1sw4NE1/1sw4NE1/1sw4NE1/1sw4NE1/7NN W";
   String fenstring = "ss3nw5/3nw2nw3/2nw7/1nw6SE1/nw9/9SE/1nw6SE1/7SE2/3SE2SE3/5SE3NN W";
   char[] fen = fenstring.toCharArray();
 
