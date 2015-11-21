@@ -165,8 +165,8 @@ void mark_laser_path(position_t *p, char *laser_map, color_t c,
 }
 
 
-// PAWNPIN Heuristic: count number of pawns that are pinned by the
-//   opposing king's laser --- and are thus immobile.
+// PAWNPIN Heuristic: count number of pawns that are NOT pinned by the
+//   opposing king's laser --- and are thus NOT immobile.
 
 int pawnpin(position_t *p, color_t color) {
   color_t c = opp_color(color);
@@ -188,7 +188,7 @@ int pawnpin(position_t *p, color_t color) {
 
   int pinned_pawns = 0;
 
-  // Figure out which pawns are not pinned down by the laser.
+  // Figure out which pawns are NOT pinned down by the laser.
   for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
     for (rnk_t r = 0; r < BOARD_WIDTH; ++r) {
       if (laser_map[square_of(f, r)] == 0 &&
