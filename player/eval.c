@@ -53,9 +53,6 @@ bool between(int c, int a, int b) {
 
 // PBETWEEN heuristic: Bonus for Pawn at (f, r) in rectangle defined by Kings at the corners
 ev_score_t pbetween(position_t *p, fil_t f, rnk_t r) {
-  /*bool is_between =
-      between(f, fil_of(p->kloc[WHITE]), fil_of(p->kloc[BLACK])) &&
-      between(r, rnk_of(p->kloc[WHITE]), rnk_of(p->kloc[BLACK]));*/
   square_t white_kloc = p->kloc[WHITE];
   square_t black_kloc = p->kloc[BLACK];
   bool is_between =
