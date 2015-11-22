@@ -133,7 +133,7 @@ To run the BayesElo software to get a rating of your players:
 * Make sure that the BayesElo software is compiled (cd into BayesElo
   directory and type 'make').
 * cd into the tests/ directory.
-* Run './pgnstats.tcl basic.pgn' which reads in a PGN file and outputs
+* Run './pgnrate.tcl basic.pgn' which reads in a PGN file and outputs
   rating.
 * The README in tests/ describes how you interpret the rating.
 
