@@ -295,22 +295,9 @@ float h_dist(square_t a, square_t b) {
   return x;
 }
 
+// TODO: do all of these laser_map things with a single generic function taking a callback
 // H_SQUARES_ATTACKABLE heuristic: for shooting the enemy king
 int h_squares_attackable(position_t *p, color_t c) {
-  char laser_map[ARR_SIZE];
-
-  for (int i = 0; i < ARR_SIZE; ++i) {
-    laser_map[i] = 4;   // Invalid square
-  }
-
-  for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
-    for (rnk_t r = 0; r < BOARD_WIDTH; ++r) {
-      laser_map[square_of(f, r)] = 0;
-    }
-  }
-
-  mark_laser_path(p, laser_map, c, 1);  // 1 = path of laser with no moves
-
   square_t o_king_sq = p->kloc[opp_color(c)];
   tbassert(ptype_of(p->board[o_king_sq]) == KING,
            "ptype: %d\n", ptype_of(p->board[o_king_sq]));
@@ -318,12 +305,43 @@ int h_squares_attackable(position_t *p, color_t c) {
            "color: %d\n", color_of(p->board[o_king_sq]));
 
   float h_attackable = 0;
-  for (fil_t f = 0; f < BOARD_WIDTH; f++) {
-    for (rnk_t r = 0; r < BOARD_WIDTH; r++) {
-      square_t sq = square_of(f, r);
-      if (laser_map[sq] != 0) {
+
+  square_t sq = p->kloc[c];
+  int bdir = ori_of(p->board[sq]);
+
+  tbassert(ptype_of(p->board[sq]) == KING,
+           "ptype: %d\n", ptype_of(p->board[sq]));
+
+  h_attackable += h_dist(sq, o_king_sq);
+
+  bool loop = true;
+  while (loop) {
+    sq += beam_of(bdir);
+    tbassert(sq < ARR_SIZE && sq >= 0, "sq: %d\n", sq);
+    piece_t piece = p->board[sq];
+    switch (ptype_of(piece)) {
+      case EMPTY:  // empty square
         h_attackable += h_dist(sq, o_king_sq);
-      }
+        break;
+      case PAWN:  // Pawn
+        h_attackable += h_dist(sq, o_king_sq);
+
+        bdir = reflect_of(bdir, ori_of(piece));
+        if (bdir < 0) {  // Hit back of Pawn
+          loop = false;
+        }
+        break;
+      case KING:  // King
+        h_attackable += h_dist(sq, o_king_sq);
+
+        loop = false;  // sorry, game over my friend!
+        break;
+      case INVALID:  // Ran off edge of board
+        loop = false;
+        break;
+      default:  // Shouldna happen, man!
+        tbassert(false, "Not cool, man.  Not cool.\n");
+        break;
     }
   }
   return h_attackable;
