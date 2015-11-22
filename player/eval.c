@@ -52,28 +52,22 @@ bool between(int c, int a, int b) {
 }
 
 // PBETWEEN heuristic: Bonus for Pawn at (f, r) in rectangle defined by Kings at the corners
-ev_score_t pbetween(position_t *p, fil_t f, rnk_t r) {
-  square_t white_kloc = p->kloc[WHITE];
-  square_t black_kloc = p->kloc[BLACK];
+int pbetween(fil_t f, rnk_t r, fil_t w_f, rnk_t w_r, fil_t b_f, rnk_t b_r) {
   bool is_between =
-      between(f, fil_of(white_kloc), fil_of(black_kloc)) &&
-      between(r, rnk_of(white_kloc), rnk_of(black_kloc));
+      between(f, w_f, b_f) &&
+      between(r, w_r, b_r);
 
-  return is_between ? PBETWEEN : 0;
+  return is_between;
 }
 
 
 // KFACE heuristic: bonus (or penalty) for King facing toward the other King
-ev_score_t kface(position_t *p, fil_t f, rnk_t r) {
-  square_t sq = square_of(f, r);
-  piece_t x = p->board[sq];
-  color_t c = color_of(x);
-  square_t opp_sq = p->kloc[opp_color(c)];
-  int delta_fil = fil_of(opp_sq) - f;
-  int delta_rnk = rnk_of(opp_sq) - r;
+ev_score_t kface(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r, int ori) {
+  int delta_fil = o_f - f;
+  int delta_rnk = o_r - r;
   int bonus;
 
-  switch (ori_of(x)) {
+  switch (ori) {
     case NN:
       bonus = delta_rnk;
       break;
@@ -99,18 +93,9 @@ ev_score_t kface(position_t *p, fil_t f, rnk_t r) {
 }
 
 // KAGGRESSIVE heuristic: bonus for King with more space to back
-ev_score_t kaggressive(position_t *p, fil_t f, rnk_t r) {
-  square_t sq = square_of(f, r);
-  piece_t x = p->board[sq];
-  color_t c = color_of(x);
-  tbassert(ptype_of(x) == KING, "ptype_of(x) = %d\n", ptype_of(x));
-
-  square_t opp_sq = p->kloc[opp_color(c)];
-  fil_t of = fil_of(opp_sq);
-  rnk_t _or = (rnk_t) rnk_of(opp_sq);
-
-  int delta_fil = of - f;
-  int delta_rnk = _or - r;
+ev_score_t kaggressive(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r) {
+  int delta_fil = o_f - f;
+  int delta_rnk = o_r - r;
 
   int bonus = 0;
 
@@ -175,7 +160,6 @@ void mark_laser_path(position_t *p, char *laser_map, color_t c,
   }
 }
 
-// TODO: cache values for o_king_loc [nah not significant]
 // Harmonic-ish distance: 1/(|dx|+1) + 1/(|dy|+1)
 float h_dist(square_t a, square_t b) {
   //  printf("a = %d, FIL(a) = %d, RNK(a) = %d\n", a, FIL(a), RNK(a));
@@ -298,11 +282,20 @@ score_t eval(position_t *p, bool verbose) {
   static __thread unsigned int seed = 1;
   // verbose = true: print out components of score
   ev_score_t score[2] = { 0, 0 };
-  //  int corner[2][2] = { {INF, INF}, {INF, INF} };
   ev_score_t bonus;
   char buf[MAX_CHARS_IN_MOVE];
 
+  // should also be able to do this for pcentral, but floating point rounding gives
+  // different result (not necessarily a worse result though)
   int pawn_counts[2] = {0};
+  int p_between[2] = {0};
+
+  square_t w_kloc = p->kloc[WHITE];
+  square_t b_kloc = p->kloc[BLACK];
+  rnk_t w_r_king = rnk_of(w_kloc);
+  fil_t w_f_king = fil_of(w_kloc);
+  rnk_t b_r_king = rnk_of(b_kloc);
+  fil_t b_f_king = fil_of(b_kloc);
 
   for (fil_t f = 0; f < BOARD_WIDTH; f++) {
     for (rnk_t r = 0; r < BOARD_WIDTH; r++) {
@@ -317,21 +310,11 @@ score_t eval(position_t *p, bool verbose) {
         case EMPTY:
           break;
         case PAWN:
+          // MATERIAL heuristic: Bonus for each Pawn
           pawn_counts[c]++;
 
-          // MATERIAL heuristic: Bonus for each Pawn
-          if (verbose) {
-            printf("MATERIAL bonus %d for %s Pawn on %s\n", PAWN_EV_VALUE, color_to_str(c), buf);
-          }
-          // now added once at the end of the loop
-          // score[c] += bonus;
-
           // PBETWEEN heuristic
-          bonus = pbetween(p, f, r);
-          if (verbose) {
-            printf("PBETWEEN bonus %d for %s Pawn on %s\n", bonus, color_to_str(c), buf);
-          }
-          score[c] += bonus;
+          p_between[c] += pbetween(f, r, w_f_king, w_r_king, b_f_king, b_r_king);
 
           // PCENTRAL heuristic
           bonus = pcentral(f, r);
@@ -343,17 +326,13 @@ score_t eval(position_t *p, bool verbose) {
 
         case KING:
           // KFACE heuristic
-          bonus = kface(p, f, r);
-          if (verbose) {
-            printf("KFACE bonus %d for %s King on %s\n", bonus,
-                   color_to_str(c), buf);
-          }
-          score[c] += bonus;
-
           // KAGGRESSIVE heuristic
-          bonus = kaggressive(p, f, r);
-          if (verbose) {
-            printf("KAGGRESSIVE bonus %d for %s King on %s\n", bonus, color_to_str(c), buf);
+          if (c == WHITE) {
+            bonus = kface(w_f_king, w_r_king, b_f_king, b_r_king, ori_of(x));
+            bonus += kaggressive(w_f_king, w_r_king, b_f_king, b_r_king);
+          } else {
+            bonus = kface(b_f_king, b_r_king, w_f_king, w_r_king, ori_of(x));
+            bonus += kaggressive(b_f_king, b_r_king, w_f_king, w_r_king);
           }
           score[c] += bonus;
           break;
@@ -365,9 +344,13 @@ score_t eval(position_t *p, bool verbose) {
     }
   }
 
+
   // MATERIAL heuristic
   score[WHITE] += pawn_counts[WHITE] * PAWN_EV_VALUE;
   score[BLACK] += pawn_counts[BLACK] * PAWN_EV_VALUE;
+
+  score[WHITE] += p_between[WHITE] * PBETWEEN;
+  score[BLACK] += p_between[BLACK] * PBETWEEN;
 
   compute_all_laser_path_heuristics(p, WHITE, score, pawn_counts[BLACK], verbose);
   compute_all_laser_path_heuristics(p, BLACK, score, pawn_counts[WHITE], verbose);
