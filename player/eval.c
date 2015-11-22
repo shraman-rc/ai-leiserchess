@@ -125,6 +125,8 @@ ev_score_t kaggressive(position_t *p, fil_t f, rnk_t r) {
 //             path of the laser is marked with mark_mask
 // c : color of king shooting laser
 // mark_mask: what each square is marked with
+// NOTE: most of this code is duplicated in mobility,
+// calculate_pawnpin_scores/laser_path_count_pawns, and h_squares_attackable
 void mark_laser_path(position_t *p, char *laser_map, color_t c,
                      char mark_mask) {
   position_t np = *p;
@@ -207,7 +209,6 @@ int laser_path_count_pawns(position_t* p, color_t c) {
   }
 }
 
-
 // PAWNPIN Heuristic: count number of pawns that are NOT pinned by the
 //   opposing king's laser --- and are thus NOT immobile.
 void calculate_pawnpin_scores(ev_score_t* score, position_t *p) {
@@ -217,17 +218,6 @@ void calculate_pawnpin_scores(ev_score_t* score, position_t *p) {
   // note: tried storing counts in an array to avoid the if statement for indexing but wasn't faster
   int w_pawns = 0;
   int b_pawns = 0;
-
-  // for (int i = 0; i < ARR_SIZE; ++i) {
-  //   piece_t piece = p->board[i];
-  //   if (ptype_of(piece) == PAWN) {
-  //     if (color_of(piece) == WHITE) {
-  //       w_pawns++;
-  //     } else {
-  //       b_pawns++;
-  //     }
-  //   }
-  // }
 
   // count pawns of each type
   for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
@@ -295,7 +285,6 @@ float h_dist(square_t a, square_t b) {
   return x;
 }
 
-// TODO: do all of these laser_map things with a single generic function taking a callback
 // H_SQUARES_ATTACKABLE heuristic: for shooting the enemy king
 int h_squares_attackable(position_t *p, color_t c) {
   square_t o_king_sq = p->kloc[opp_color(c)];
