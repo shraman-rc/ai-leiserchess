@@ -313,10 +313,11 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
           }
 
           // rotations - three directions possible
-          for (int rot = 1; rot < 4; ++rot) {
-            tbassert(move_count < MAX_NUM_MOVES, "move_count: %d\n", move_count);
-            sortable_move_list[move_count++] = move_of(typ, (rot_t) rot, sq, sq);
-          }
+          sortable_move_list[move_count++] = move_of(typ, (rot_t) 0, sq, sq);
+          sortable_move_list[move_count++] = move_of(typ, (rot_t) 1, sq, sq);
+          sortable_move_list[move_count++] = move_of(typ, (rot_t) 2, sq, sq);
+          sortable_move_list[move_count++] = move_of(typ, (rot_t) 3, sq, sq);
+
           if (typ == KING) {  // Also generate null move
             tbassert(move_count < MAX_NUM_MOVES, "move_count: %d\n", move_count);
             sortable_move_list[move_count++] = move_of(typ, (rot_t) 0, sq, sq);

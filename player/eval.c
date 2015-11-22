@@ -141,14 +141,12 @@ ev_score_t kaggressive(position_t *p, fil_t f, rnk_t r) {
 // calculate_pawnpin_scores/laser_path_count_pawns, and h_squares_attackable
 void mark_laser_path(position_t *p, char *laser_map, color_t c,
                      char mark_mask) {
-  position_t np = *p;
-
   // Fire laser, recording in laser_map
-  square_t sq = np.kloc[c];
-  int bdir = ori_of(np.board[sq]);
+  square_t sq = p->kloc[c];
+  int bdir = ori_of(p->board[sq]);
 
-  tbassert(ptype_of(np.board[sq]) == KING,
-           "ptype: %d\n", ptype_of(np.board[sq]));
+  tbassert(ptype_of(p->board[sq]) == KING,
+           "ptype: %d\n", ptype_of(p->board[sq]));
   laser_map[sq] |= mark_mask;
 
   while (true) {
