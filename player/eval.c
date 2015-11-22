@@ -166,11 +166,10 @@ void mark_laser_path(position_t *p, char *laser_map, color_t c,
 
 // c is laser count
 // returns count of pawns of opposing color
-int laser_path_count_pawns(position_t* p, char *laser_map, color_t c) {
+int laser_path_count_pawns(position_t* p, color_t c) {
   color_t opp_c = opp_color(c);
   int count = 0;
 
-  // Fire laser, recording in laser_map
   square_t sq = p->kloc[c];
   int bdir = ori_of(p->board[sq]);
 
@@ -212,23 +211,24 @@ int laser_path_count_pawns(position_t* p, char *laser_map, color_t c) {
 // PAWNPIN Heuristic: count number of pawns that are NOT pinned by the
 //   opposing king's laser --- and are thus NOT immobile.
 void calculate_pawnpin_scores(ev_score_t* score, position_t *p) {
-  char laser_map[ARR_SIZE];
+  int b_pinned = laser_path_count_pawns(p, WHITE);
+  int w_pinned = laser_path_count_pawns(p, BLACK);
 
-  for (int i = 0; i < ARR_SIZE; ++i) {
-    laser_map[i] = 4;   // Invalid square
-  }
-
-  for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
-    for (rnk_t r = 0; r < BOARD_WIDTH; ++r) {
-      laser_map[square_of(f, r)] = 0;
-    }
-  }
-
-  int b_pinned = laser_path_count_pawns(p, laser_map, WHITE);
-  int w_pinned = laser_path_count_pawns(p, laser_map, BLACK);
-
+  // note: tried storing counts in an array to avoid the if statement for indexing but wasn't faster
   int w_pawns = 0;
   int b_pawns = 0;
+
+  // for (int i = 0; i < ARR_SIZE; ++i) {
+  //   piece_t piece = p->board[i];
+  //   if (ptype_of(piece) == PAWN) {
+  //     if (color_of(piece) == WHITE) {
+  //       w_pawns++;
+  //     } else {
+  //       b_pawns++;
+  //     }
+  //   }
+  // }
+
   // count pawns of each type
   for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
     for (rnk_t r = 0; r < BOARD_WIDTH; ++r) {
