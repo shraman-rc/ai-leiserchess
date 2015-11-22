@@ -39,7 +39,9 @@ typedef int fil_t;
 // -----------------------------------------------------------------------------
 
 #define PIECE_SIZE 5  // Number of bits in (ptype, color, orientation)
-
+// ptype_of is called most often, followed by color_of, followed by ori_of so the best order is:
+// high--orientation, color, ptype--low
+// TODO: figure out why changing the bit orders fails (probably hard coded stuff somewhere)
 typedef int piece_t;
 
 // -----------------------------------------------------------------------------
