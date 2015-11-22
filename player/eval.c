@@ -24,6 +24,12 @@ int KAGGRESSIVE;
 int MOBILITY;
 int PAWNPIN;
 
+size_t squares[100] = { 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76,
+                        83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108,
+                        115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140,
+                        147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+                        179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204 };
+
 // Heuristics for static evaluation - described in the google doc
 // mentioned in the handout.
 
@@ -47,9 +53,15 @@ bool between(int c, int a, int b) {
 
 // PBETWEEN heuristic: Bonus for Pawn at (f, r) in rectangle defined by Kings at the corners
 ev_score_t pbetween(position_t *p, fil_t f, rnk_t r) {
-  bool is_between =
+  /*bool is_between =
       between(f, fil_of(p->kloc[WHITE]), fil_of(p->kloc[BLACK])) &&
-      between(r, rnk_of(p->kloc[WHITE]), rnk_of(p->kloc[BLACK]));
+      between(r, rnk_of(p->kloc[WHITE]), rnk_of(p->kloc[BLACK]));*/
+  square_t white_kloc = p->kloc[WHITE];
+  square_t black_kloc = p->kloc[BLACK];
+  bool is_between =
+      between(f, ((white_kloc >> FIL_SHIFT) & FIL_MASK) - FIL_ORIGIN, ((black_kloc >> FIL_SHIFT) & FIL_MASK) - FIL_ORIGIN) &&
+      between(r, ((white_kloc >> RNK_SHIFT) & RNK_MASK) - RNK_ORIGIN, ((black_kloc >> RNK_SHIFT) & RNK_MASK) - RNK_ORIGIN);
+
   return is_between ? PBETWEEN : 0;
 }
 
@@ -218,11 +230,14 @@ void calculate_pawnpin_scores(ev_score_t* score, position_t *p) {
     laser_map[i] = 4;   // Invalid square
   }
 
-  for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
+  for (size_t i = 0; i < 100; ++i) {
+    laser_map[squares[i]] = 0;
+  }
+  /*for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
     for (rnk_t r = 0; r < BOARD_WIDTH; ++r) {
       laser_map[square_of(f, r)] = 0;
     }
-  }
+  }*/
 
   int b_pinned = laser_path_count_pawns(p, laser_map, WHITE);
   int w_pinned = laser_path_count_pawns(p, laser_map, BLACK);
@@ -230,7 +245,18 @@ void calculate_pawnpin_scores(ev_score_t* score, position_t *p) {
   int w_pawns = 0;
   int b_pawns = 0;
   // count pawns of each type
-  for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
+  for (size_t i = 0; i < 100; ++i) {
+    piece_t piece = p->board[squares[i]];
+    if (ptype_of(piece) == PAWN) {
+      if (color_of(piece) == WHITE) {
+        w_pawns++;
+      } else {
+        b_pawns++;
+      }
+    }
+  }
+  
+  /*for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
     for (rnk_t r = 0; r < BOARD_WIDTH; ++r) {
       piece_t piece = p->board[square_of(f, r)];
       if (ptype_of(piece) == PAWN) {
@@ -241,7 +267,7 @@ void calculate_pawnpin_scores(ev_score_t* score, position_t *p) {
         }
       }
     }
-  }
+  }*/
 
   score[WHITE] += PAWNPIN * (w_pawns - w_pinned);
   score[BLACK] += PAWNPIN * (b_pawns - b_pinned);
@@ -256,11 +282,15 @@ int mobility(position_t *p, color_t color) {
     laser_map[i] = 4;   // Invalid square
   }
 
-  for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
+  for (size_t i = 0; i < 100; ++i) {
+    laser_map[squares[i]] = 0;
+  }
+
+  /*for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
     for (rnk_t r = 0; r < BOARD_WIDTH; ++r) {
       laser_map[square_of(f, r)] = 0;
     }
-  }
+  }*/
 
   mark_laser_path(p, laser_map, c, 1);  // find path of laser given that you aren't moving
 
@@ -303,11 +333,15 @@ int h_squares_attackable(position_t *p, color_t c) {
     laser_map[i] = 4;   // Invalid square
   }
 
-  for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
+  for (size_t i = 0; i < 100; ++i) {
+    laser_map[squares[i]] = 0;
+  }
+
+  /*for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
     for (rnk_t r = 0; r < BOARD_WIDTH; ++r) {
       laser_map[square_of(f, r)] = 0;
     }
-  }
+  }*/
 
   mark_laser_path(p, laser_map, c, 1);  // 1 = path of laser with no moves
 
@@ -318,14 +352,22 @@ int h_squares_attackable(position_t *p, color_t c) {
            "color: %d\n", color_of(p->board[o_king_sq]));
 
   float h_attackable = 0;
-  for (fil_t f = 0; f < BOARD_WIDTH; f++) {
+
+  for (size_t i = 0; i < 100; ++i) {
+    square_t sq = squares[i];
+    if (laser_map[sq] != 0) {
+      h_attackable += h_dist(sq, o_king_sq);
+    }
+  }
+
+  /*for (fil_t f = 0; f < BOARD_WIDTH; f++) {
     for (rnk_t r = 0; r < BOARD_WIDTH; r++) {
       square_t sq = square_of(f, r);
       if (laser_map[sq] != 0) {
         h_attackable += h_dist(sq, o_king_sq);
       }
     }
-  }
+  }*/
   return h_attackable;
 }
 
