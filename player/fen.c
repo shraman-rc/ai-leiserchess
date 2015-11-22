@@ -464,6 +464,7 @@ static char *king_ori_to_rep[2][NUM_ORI] = {  { "NN", "EE", "SS", "WW" },
 static char *pawn_ori_to_rep[2][NUM_ORI] = {  { "NW", "NE", "SE", "SW" },
                                               { "nw", "ne", "se", "sw" } };
 
+// TODO
 // Translate a position struct into a fen string
 // NOTE: When you use the test framework in search.c, you should modify this
 // function to match your optimized board representation in move_gen.c
