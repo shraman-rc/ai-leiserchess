@@ -22,9 +22,9 @@
 // board is 8 x 8 or 10 x 10
 #define BOARD_WIDTH 10
 
-typedef int square_t;
-typedef int rnk_t;
-typedef int fil_t;
+typedef int16_t square_t;
+typedef uint8_t rnk_t;
+typedef uint8_t fil_t;
 
 #define FIL_ORIGIN ((ARR_WIDTH - BOARD_WIDTH) / 2)
 #define RNK_ORIGIN ((ARR_WIDTH - BOARD_WIDTH) / 2)
@@ -42,7 +42,7 @@ typedef int fil_t;
 // ptype_of is called most often, followed by color_of, followed by ori_of so the best order is:
 // high--orientation, color, ptype--low
 // TODO: figure out why changing the bit orders fails (probably hard coded stuff somewhere)
-typedef int piece_t;
+typedef int8_t piece_t;
 
 // -----------------------------------------------------------------------------
 // piece types
@@ -140,7 +140,7 @@ typedef struct position {
   piece_t      board[ARR_SIZE];
   struct position  *history;     // history of position
   uint64_t     key;              // hash key
-  int          ply;              // Even ply are White, odd are Black
+  uint8_t          ply;              // Even ply are White, odd are Black
   move_t       last_move;        // move that led to this position
   victims_t    victims;          // pieces destroyed by shooter or stomper
   square_t     kloc[2];          // location of kings
@@ -176,7 +176,7 @@ void move_to_str(move_t mv, char *buf, size_t bufsize);
 int generate_all(position_t *p, sortable_move_t *sortable_move_list,
                  bool strict);
 void do_perft(position_t *gme, int depth, int ply);
-piece_t low_level_make_move(position_t *old, position_t *p, move_t mv);
+square_t low_level_make_move(position_t *old, position_t *p, move_t mv);
 victims_t make_move(position_t *old, position_t *p, move_t mv);
 void display(position_t *p);
 uint64_t compute_zob_key(position_t *p);

@@ -313,7 +313,6 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
           }
 
           // rotations - three directions possible
-          sortable_move_list[move_count++] = move_of(typ, (rot_t) 0, sq, sq);
           sortable_move_list[move_count++] = move_of(typ, (rot_t) 1, sq, sq);
           sortable_move_list[move_count++] = move_of(typ, (rot_t) 2, sq, sq);
           sortable_move_list[move_count++] = move_of(typ, (rot_t) 3, sq, sq);
