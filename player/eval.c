@@ -124,7 +124,7 @@ void mark_laser_path(position_t *p, char *laser_map, color_t c,
                      char mark_mask) {
   // Fire laser, recording in laser_map
   square_t sq = p->kloc[c];
-  int bdir = ori_of(p->board[sq]);
+  int8_t bdir = ori_of(p->board[sq]);
 
   tbassert(ptype_of(p->board[sq]) == KING,
            "ptype: %d\n", ptype_of(p->board[sq]));
@@ -172,10 +172,10 @@ float h_dist(square_t a, square_t b) {
 // H_SQUARES_ATTACKABLE heuristic: for shooting the enemy king.
 // MOBILITY heuristic: safe squares around king of color color.
 // c is the color of the king shooting the laser
-void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* scores, int o_pawns, bool verbose) {
+void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* scores, uint8_t o_pawns, bool verbose) {
   color_t opp_c = opp_color(c);
 
-  int o_pinned_pawns = 0;  // number of pinned pawns of color opp_c
+  uint8_t o_pinned_pawns = 0;  // number of pinned pawns of color opp_c
   float h_attackable = 0;  // for king of color c
 
   // mark true when hit by laser
@@ -183,7 +183,7 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
   bool laser_map[ARR_SIZE] = {false};
 
   square_t sq = p->kloc[c];
-  int bdir = ori_of(p->board[sq]);
+  int8_t bdir = ori_of(p->board[sq]);
 
   tbassert(ptype_of(p->board[sq]) == KING,
            "ptype: %d\n", ptype_of(p->board[sq]));
@@ -233,7 +233,7 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
     }
   }
 
-  int o_mobility = 0;  // mobility of king of color opp_c
+  uint8_t o_mobility = 0;  // mobility of king of color opp_c
   if (laser_map[o_king_sq] == false) {
     o_mobility++;
   }
@@ -246,8 +246,7 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
     }
   }
 
-  o_mobility *= MOBILITY;
-  scores[opp_c] += o_mobility;
+  scores[opp_c] += o_mobility * MOBILITY;
 
   if (verbose) {
     if (opp_c == WHITE) {
@@ -257,8 +256,7 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
     }
   }
 
-  h_attackable = (int)h_attackable * HATTACK;
-  scores[c] += h_attackable;
+  scores[c] += (int)h_attackable * HATTACK;
 
   if (verbose) {
     if (c == WHITE) {
@@ -283,7 +281,7 @@ score_t eval(position_t *p, bool verbose) {
 
   // should also be able to do this for pcentral, but floating point rounding gives
   // different result (not necessarily a worse result though)
-  int pawn_counts[2] = {0};
+  uint8_t pawn_counts[2] = {0};
   int p_between[2] = {0};
 
   square_t w_kloc = p->kloc[WHITE];
