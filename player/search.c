@@ -142,11 +142,11 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
   int num_of_moves = get_sortable_move_list(node, move_list, hash_table_move);
   int num_moves_tried = 0;
 
-  // Start searching moves.
-  for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
-    // Incrementally sort the move list.
-    sort_incremental(move_list, num_of_moves, mv_index);
+  // Incrementally sort the move list.
+  sort_incremental(move_list, num_of_moves);
 
+  // Start searching moves.
+  for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {  
     move_t mv = get_move(move_list[mv_index]);
 
     num_moves_tried++;

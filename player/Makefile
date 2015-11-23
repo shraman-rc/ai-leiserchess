@@ -19,15 +19,17 @@ else
 	OS_TYPE := Linux
 	#PFLAG := -D_XOPEN_SOURCE
 	CFLAGS := -std=gnu99 -lrt -Wall -g
-	LDFLAGS= -Wall -lm -lrt -ldl -lpthread
+	LDFLAGS := -Wall -lm -lrt -ldl -lpthread
 endif
 endif
 
 #CFLAGS = -std=c99 -Wall -fcilkplus
 ifeq ($(DEBUG),1)
 	CFLAGS += -O0 -DDEBUG $(PFLAG)
+	LDFLAGS += -O0
 else
-	CFLAGS += -O3 -fcilkplus -DNDEBUG $(PFLAG)
+	CFLAGS += -O3 -flto -fcilkplus -DNDEBUG  $(PFLAG)
+	LDFLAGS += -O3 -flto
 endif
 
 ifeq ($(REFERENCE),1)
@@ -36,7 +38,7 @@ endif
 
 CFLAGS += $(OTHER_CFLAGS)
 
-LDFLAGS= -Wall -lrt -lm -lcilkrts -ldl -lpthread
+LDFLAGS += -Wall -lrt -lm -lcilkrts -ldl -lpthread
 
 .PHONY : default clean
 

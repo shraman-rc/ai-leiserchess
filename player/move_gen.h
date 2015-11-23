@@ -23,8 +23,8 @@
 #define BOARD_WIDTH 10
 
 typedef int16_t square_t;
-typedef uint8_t rnk_t;
-typedef uint8_t fil_t;
+typedef int8_t rnk_t;
+typedef int8_t fil_t;
 
 #define FIL_ORIGIN ((ARR_WIDTH - BOARD_WIDTH) / 2)
 #define RNK_ORIGIN ((ARR_WIDTH - BOARD_WIDTH) / 2)
@@ -140,7 +140,7 @@ typedef struct position {
   piece_t      board[ARR_SIZE];
   struct position  *history;     // history of position
   uint64_t     key;              // hash key
-  uint8_t          ply;              // Even ply are White, odd are Black
+  uint16_t          ply;              // Even ply are White, odd are Black
   move_t       last_move;        // move that led to this position
   victims_t    victims;          // pieces destroyed by shooter or stomper
   square_t     kloc[2];          // location of kings

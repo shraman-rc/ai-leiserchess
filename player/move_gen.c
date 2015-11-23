@@ -31,12 +31,15 @@ char *color_to_str(color_t c) {
 
 // which color is moving next
 color_t color_to_move_of(position_t *p) {
+  return (color_t) (p->ply & 1);
+}
+/*color_t color_to_move_of(position_t *p) {
   if ((p->ply & 1) == 0) {
     return WHITE;
   } else {
     return BLACK;
   }
-}
+}*/
 
 color_t color_of(piece_t x) {
   return (color_t) ((x >> COLOR_SHIFT) & COLOR_MASK);
@@ -49,7 +52,6 @@ color_t opp_color(color_t c) {
     return WHITE;
   }
 }
-
 
 void set_color(piece_t *x, color_t c) {
   tbassert((c >= 0) & (c <= COLOR_MASK), "color: %d\n", c);
