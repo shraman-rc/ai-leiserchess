@@ -27,7 +27,7 @@ endif
 ifeq ($(DEBUG),1)
 	CFLAGS += -O0 -DDEBUG $(PFLAG)
 else
-	CFLAGS += -O3 -fcilkplus -DNDEBUG $(PFLAG)
+	CFLAGS += -O3 -flto -fcilkplus -DNDEBUG  $(PFLAG)
 endif
 
 ifeq ($(REFERENCE),1)
@@ -36,7 +36,7 @@ endif
 
 CFLAGS += $(OTHER_CFLAGS)
 
-LDFLAGS= -Wall -lrt -lm -lcilkrts -ldl -lpthread
+LDFLAGS= -O3 -flto -Wall -lrt -lm -lcilkrts -ldl -lpthread
 
 .PHONY : default clean
 
