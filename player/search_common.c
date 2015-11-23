@@ -137,13 +137,17 @@ static bool is_repeated(position_t *p, int ply) {
 // the pov (which player's point of view)
 static bool is_game_over(victims_t victims, int pov, int ply) {
   tbassert(ptype_of(victims.stomped) != KING, "Stomped a king.\n");
-  if (ptype_of(victims.zapped) == KING) {
-    return true;
-  }
-  return false;
+  return ptype_of(victims.zapped) == KING;
 }
 
 static score_t get_game_over_score(victims_t victims, int pov, int ply) {
+  tbassert(ptype_of(victims.stomped) != KING, "Stomped a king.\n");
+  // score negative when victims.zapped == WHITE
+  score_t score = -1*(1 - 2*(color_of(victims.zapped)))*WIN*pov;
+  return score + (1 - 2*(score >= 0))*ply;
+}
+
+/*static score_t get_game_over_score(victims_t victims, int pov, int ply) {
   tbassert(ptype_of(victims.stomped) != KING, "Stomped a king.\n");
   score_t score;
   if (color_of(victims.zapped) == WHITE) {
@@ -157,7 +161,7 @@ static score_t get_game_over_score(victims_t victims, int pov, int ply) {
     score -= ply;
   }
   return score;
-}
+}*/
 
 static void getPV(move_t *pv, char *buf, size_t bufsize) {
   buf[0] = 0;
