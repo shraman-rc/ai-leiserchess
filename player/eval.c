@@ -190,7 +190,7 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
   square_t o_king_sq = p->kloc[opp_c];
   tbassert(ptype_of(p->board[o_king_sq]) == KING,
            "ptype: %d\n", ptype_of(p->board[o_king_sq]));
-  tbassert(color_of(p->board[o_king_sq]) == color,
+  tbassert(color_of(p->board[o_king_sq]) == opp_c,
            "color: %d\n", color_of(p->board[o_king_sq]));
 
   laser_map[sq] = true;
