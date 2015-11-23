@@ -391,6 +391,7 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
       }
     });
 
+  // really expensive
   *p = *old;
 
   p->history = old;

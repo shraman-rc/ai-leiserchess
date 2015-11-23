@@ -60,7 +60,6 @@ int pbetween(fil_t f, rnk_t r, fil_t w_f, rnk_t w_r, fil_t b_f, rnk_t b_r) {
   return is_between;
 }
 
-
 // KFACE heuristic: bonus (or penalty) for King facing toward the other King
 ev_score_t kface(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r, int ori) {
   int delta_fil = o_f - f;
@@ -123,14 +122,12 @@ ev_score_t kaggressive(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r) {
 // calculate_pawnpin_scores/laser_path_count_pawns, and h_squares_attackable
 void mark_laser_path(position_t *p, char *laser_map, color_t c,
                      char mark_mask) {
-  position_t np = *p;
-
   // Fire laser, recording in laser_map
-  square_t sq = np.kloc[c];
-  int bdir = ori_of(np.board[sq]);
+  square_t sq = p->kloc[c];
+  int bdir = ori_of(p->board[sq]);
 
-  tbassert(ptype_of(np.board[sq]) == KING,
-           "ptype: %d\n", ptype_of(np.board[sq]));
+  tbassert(ptype_of(p->board[sq]) == KING,
+           "ptype: %d\n", ptype_of(p->board[sq]));
   laser_map[sq] |= mark_mask;
 
   while (true) {
@@ -185,12 +182,11 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
   // only used by mobility computation
   bool laser_map[ARR_SIZE] = {false};
 
-  position_t np = *p;
-  square_t sq = np.kloc[c];
-  int bdir = ori_of(np.board[sq]);
+  square_t sq = p->kloc[c];
+  int bdir = ori_of(p->board[sq]);
 
-  tbassert(ptype_of(np.board[sq]) == KING,
-           "ptype: %d\n", ptype_of(np.board[sq]));
+  tbassert(ptype_of(p->board[sq]) == KING,
+           "ptype: %d\n", ptype_of(p->board[sq]));
   square_t o_king_sq = p->kloc[opp_c];
   tbassert(ptype_of(p->board[o_king_sq]) == KING,
            "ptype: %d\n", ptype_of(p->board[o_king_sq]));
@@ -343,7 +339,6 @@ score_t eval(position_t *p, bool verbose) {
       }
     }
   }
-
 
   // MATERIAL heuristic
   score[WHITE] += pawn_counts[WHITE] * PAWN_EV_VALUE;
