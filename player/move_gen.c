@@ -108,8 +108,9 @@ uint64_t compute_zob_key(position_t *p) {
       key ^= zob[sq][p->board[sq]];
     }
   }
-  if (color_to_move_of(p) == BLACK)
-    key ^= zob_color;
+//  if (color_to_move_of(p) == BLACK)
+//    key ^= zob_color;
+  key ^= -(color_to_move_of(p) == BLACK) & zob_color;
 
   return key;
 }
@@ -295,8 +296,6 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
       ptype_t typ = ptype_of(x);
       color_t color = color_of(x);
       
-      uint8_t dir_movelist_key = 0;
-
       switch (typ) {
         case EMPTY:
           break;
@@ -474,13 +473,6 @@ victims_t make_move(position_t *old, position_t *p, move_t mv) {
   // move phase 1 - moving a piece, which may result in a stomp
   square_t stomped_sq = low_level_make_move(old, p, mv);
 
-  WHEN_DEBUG_VERBOSE({
-      if (stomped_sq != 0) {
-        square_to_str(stomped_sq, buf, MAX_CHARS_IN_MOVE);
-        DEBUG_LOG(1, "Stomping piece on %s\n", buf);
-      }
-    });
-
   if (stomped_sq == 0) {
     p->victims.stomped = 0;
 
@@ -496,22 +488,10 @@ victims_t make_move(position_t *old, position_t *p, move_t mv) {
     tbassert(p->key == compute_zob_key(p),
              "p->key: %"PRIu64", zob-key: %"PRIu64"\n",
              p->key, compute_zob_key(p));
-
-    WHEN_DEBUG_VERBOSE({
-        square_to_str(stomped_sq, buf, MAX_CHARS_IN_MOVE);
-        DEBUG_LOG(1, "Stomped piece on %s\n", buf);
-      });
   }
 
   // move phase 2 - shooting the laser
   square_t victim_sq = fire(p);
-
-  WHEN_DEBUG_VERBOSE({
-      if (victim_sq != 0) {
-        square_to_str(victim_sq, buf, MAX_CHARS_IN_MOVE);
-        DEBUG_LOG(1, "Zapping piece on %s\n", buf);
-      }
-    });
 
   if (victim_sq == 0) {
     p->victims.zapped = 0;
@@ -530,11 +510,6 @@ victims_t make_move(position_t *old, position_t *p, move_t mv) {
     tbassert(p->key == compute_zob_key(p),
              "p->key: %"PRIu64", zob-key: %"PRIu64"\n",
              p->key, compute_zob_key(p));
-
-    WHEN_DEBUG_VERBOSE({
-        square_to_str(victim_sq, buf, MAX_CHARS_IN_MOVE);
-        DEBUG_LOG(1, "Zapped piece on %s\n", buf);
-      });
   }
 
   return p->victims;

@@ -35,10 +35,13 @@ size_t squares[100] = { 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 67, 68, 69, 70, 
 
 
 // PCENTRAL heuristic: Bonus for Pawn near center of board
+// TODO(shraman): This is expensive floating point computation for what extra accuracy? Change to int's and get rid of 'if'?
 ev_score_t pcentral(fil_t f, rnk_t r) {
-  double df = BOARD_WIDTH/2 - f - 1;
-  if (df < 0)  df = f - BOARD_WIDTH/2;
-  double dr = BOARD_WIDTH/2 - r - 1;
+  int32_t df = BOARD_WIDTH/2 - f - 1;
+  //df = (df < 0) ? f - BOARD_WIDTH/2 : df;
+  if (df < 0) df = f - BOARD_WIDTH/2;
+  int32_t dr = BOARD_WIDTH/2 - r - 1;
+  //dr = (dr < 0) ? r - BOARD_WIDTH/2 : dr;
   if (dr < 0) dr = r - BOARD_WIDTH/2;
   double bonus = 1 - sqrt(df * df + dr * dr) / (BOARD_WIDTH / sqrt(2));
   return PCENTRAL * bonus;
@@ -233,42 +236,46 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
     }
   }
 
-  int o_mobility = 0;  // mobility of king of color opp_c
-  if (laser_map[o_king_sq] == false) {
-    o_mobility++;
-  }
+  int o_mobility = laser_map[o_king_sq] == false;  // mobility of king of color opp_c
   for (int d = 0; d < 8; ++d) {
     square_t sq = o_king_sq + dir_of(d);
-    if (rnk_of(sq) >= 0 && rnk_of(sq) < BOARD_WIDTH && fil_of(sq) >= 0 && fil_of(sq) < BOARD_WIDTH) {
-      if (laser_map[sq] == false) {
-        o_mobility++;
-      }
-    }
+    o_mobility += (rnk_of(sq) >= 0 && rnk_of(sq) < BOARD_WIDTH && fil_of(sq) >= 0 && fil_of(sq) < BOARD_WIDTH && laser_map[sq] == false);
   }
-
+//  int o_mobility = 0;  // mobility of king of color opp_c
+//  if (laser_map[o_king_sq] == false) {
+//    o_mobility++;
+//  }
+//  for (int d = 0; d < 8; ++d) {
+//    square_t sq = o_king_sq + dir_of(d);
+//    if (rnk_of(sq) >= 0 && rnk_of(sq) < BOARD_WIDTH && fil_of(sq) >= 0 && fil_of(sq) < BOARD_WIDTH) {
+//      if (laser_map[sq] == false) {
+//        o_mobility++;
+//      }
+//    }
+//  }
+//
   o_mobility *= MOBILITY;
-  scores[opp_c] += o_mobility;
-
-  if (verbose) {
-    if (opp_c == WHITE) {
-      printf("MOBILITY bonus %d for White \n", o_mobility);
-    } else {
-      printf("MOBILITY bonus %d for Black \n", o_mobility);
-    }
-  }
-
+  scores[opp_c] += o_mobility + PAWNPIN * (o_pawns - o_pinned_pawns);
   h_attackable = (int)h_attackable * HATTACK;
   scores[c] += h_attackable;
 
-  if (verbose) {
-    if (c == WHITE) {
-      printf("HATTACK bonus %f for White \n", h_attackable);
-    } else {
-      printf("HATTACK bonus %f for Black \n", h_attackable);
-    }
-  }
+//  if (verbose) {
+//    if (opp_c == WHITE) {
+//      printf("MOBILITY bonus %d for White \n", o_mobility);
+//    } else {
+//      printf("MOBILITY bonus %d for Black \n", o_mobility);
+//    }
+//  }
+//
+//
+//  if (verbose) {
+//    if (c == WHITE) {
+//      printf("HATTACK bonus %f for White \n", h_attackable);
+//    } else {
+//      printf("HATTACK bonus %f for Black \n", h_attackable);
+//    }
+//  }
 
-  scores[opp_c] += PAWNPIN * (o_pawns - o_pinned_pawns);
 }
 
 // Static evaluation.  Returns score
@@ -279,7 +286,6 @@ score_t eval(position_t *p, bool verbose) {
   // verbose = true: print out components of score
   ev_score_t score[2] = { 0, 0 };
   ev_score_t bonus;
-  char buf[MAX_CHARS_IN_MOVE];
 
   // should also be able to do this for pcentral, but floating point rounding gives
   // different result (not necessarily a worse result though)
@@ -298,9 +304,9 @@ score_t eval(position_t *p, bool verbose) {
       square_t sq = square_of(f, r);
       piece_t x = p->board[sq];
       color_t c = color_of(x);
-      if (verbose) {
-        square_to_str(sq, buf, MAX_CHARS_IN_MOVE);
-      }
+//      if (verbose) {
+//        square_to_str(sq, buf, MAX_CHARS_IN_MOVE);
+//      }
 
       switch (ptype_of(x)) {
         case EMPTY:
@@ -314,9 +320,9 @@ score_t eval(position_t *p, bool verbose) {
 
           // PCENTRAL heuristic
           bonus = pcentral(f, r);
-          if (verbose) {
-            printf("PCENTRAL bonus %d for %s Pawn on %s\n", bonus, color_to_str(c), buf);
-          }
+//          if (verbose) {
+//            printf("PCENTRAL bonus %d for %s Pawn on %s\n", bonus, color_to_str(c), buf);
+//          }
           score[c] += bonus;
           break;
 
@@ -358,9 +364,10 @@ score_t eval(position_t *p, bool verbose) {
     tot = tot + z - RANDOMIZE;
   }
 
-  if (color_to_move_of(p) == BLACK) {
-    tot = -tot;
-  }
+//  if (color_to_move_of(p) == BLACK) {
+//    tot = -tot;
+//  }
+  tot = (1-2*(color_to_move_of(p) == BLACK))*tot;
 
   return tot / EV_SCORE_RATIO;
 }
