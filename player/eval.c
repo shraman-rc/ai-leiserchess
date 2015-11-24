@@ -117,22 +117,20 @@ ev_score_t kaggressive(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r) {
 // laser_map : end result will be stored here. Every square on the
 //             path of the laser is marked with mark_mask
 // c : color of king shooting laser
-// mark_mask: what each square is marked with
-// NOTE: most of this code is duplicated in mobility,
-// calculate_pawnpin_scores/laser_path_count_pawns, and h_squares_attackable
-void mark_laser_path(position_t *p, char *laser_map, color_t c,
-                     char mark_mask) {
+// marks all hit squares with true
+// NOTE: most of this code is duplicated in compute_all_laser_path_heuristics
+void mark_laser_path(position_t *p, bool *laser_map, color_t c) {
   // Fire laser, recording in laser_map
   square_t sq = p->kloc[c];
   int8_t bdir = ori_of(p->board[sq]);
 
   tbassert(ptype_of(p->board[sq]) == KING,
            "ptype: %d\n", ptype_of(p->board[sq]));
-  laser_map[sq] |= mark_mask;
+  laser_map[sq] = true;
 
   while (true) {
     sq += beam_of(bdir);
-    laser_map[sq] |= mark_mask;
+    laser_map[sq] = true;
     tbassert(sq < ARR_SIZE && sq >= 0, "sq: %d\n", sq);
 
     switch (ptype_of(p->board[sq])) {

@@ -252,20 +252,8 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
                  bool strict) {
   color_t color_to_move = color_to_move_of(p);
   // Make sure that the enemy_laser map is marked
-  char laser_map[ARR_SIZE];
-
-  for (int i = 0; i < ARR_SIZE; ++i) {
-    laser_map[i] = 4;   // Invalid square
-  }
-
-  for (fil_t f = 0; f < BOARD_WIDTH; ++f) {
-    for (rnk_t r = 0; r < BOARD_WIDTH; ++r) {
-      laser_map[square_of(f, r)] = 0;
-    }
-  }
-
-  // 1 = path of laser with no moves
-  mark_laser_path(p, laser_map, opp_color(color_to_move), 1);
+  bool laser_map[ARR_SIZE] = {false};
+  mark_laser_path(p, laser_map, opp_color(color_to_move));
 
   int move_count = 0;
 
@@ -281,7 +269,7 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
         case EMPTY:
           break;
         case PAWN:
-          if (laser_map[sq] == 1) continue;  // Piece is pinned down by laser.
+          if (laser_map[sq]) continue;  // Piece is pinned down by laser.
         case KING:
           if (color != color_to_move) {  // Wrong color
             break;
