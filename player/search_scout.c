@@ -105,9 +105,9 @@ static score_t scout_search(searchNode *node, int depth,
     // increase node count
     __sync_fetch_and_add(node_count_serial, 1);
 
-    moveEvaluationResult result = evaluateMove(node, mv, killer_a, killer_b,
-                                               SEARCH_SCOUT,
-                                               node_count_serial);
+    moveEvaluationResult result;
+    evaluateMove(node, mv, killer_a, killer_b,
+                 SEARCH_SCOUT, node_count_serial, &result);
 
     if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
         || abortf || parallel_parent_aborted(node)) {

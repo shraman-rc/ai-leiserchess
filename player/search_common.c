@@ -247,45 +247,45 @@ leafEvalResult evaluate_as_leaf(searchNode *node, searchType_t type) {
 }
 
 // Evaluate the move by performing a search.
-moveEvaluationResult evaluateMove(searchNode *node, move_t mv, move_t killer_a,
-                                  move_t killer_b, searchType_t type,
-                                  uint64_t *node_count_serial) {
+void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
+                  move_t killer_b, searchType_t type,
+                  uint64_t *node_count_serial, moveEvaluationResult* result) {
   int ext = 0;  // extensions
   bool blunder = false;  // shoot our own piece
-  moveEvaluationResult result;
-  result.next_node.subpv[0] = 0;
-  result.next_node.parent = node;
+
+  result->next_node.subpv[0] = 0;
+  result->next_node.parent = node;
 
   // Make the move, and get any victim pieces.
-  victims_t victims = make_move(&(node->position), &(result.next_node.position),
+  victims_t victims = make_move(&(node->position), &(result->next_node.position),
                                 mv);
 
   // Check whether this move changes the board state.
   //   such moves are not legal.
   if (is_KO(victims)) {
-    result.type = MOVE_ILLEGAL;
-    return result;
+    result->type = MOVE_ILLEGAL;
+    return;
   }
 
   // Check whether the game is over.
   if (is_game_over(victims, node->pov, node->ply)) {
     // Compute the end-game score.
-    result.type = MOVE_GAMEOVER;
-    result.score = get_game_over_score(victims, node->pov, node->ply);
-    return result;
+    result->type = MOVE_GAMEOVER;
+    result->score = get_game_over_score(victims, node->pov, node->ply);
+    return;
   }
 
   // Ignore noncapture moves when in quiescence.
   if (zero_victims(victims) && node->quiescence) {
-    result.type = MOVE_IGNORE;
-    return result;
+    result->type = MOVE_IGNORE;
+    return;
   }
 
   // Check whether the board state has been repeated, this results in a draw.
-  if (is_repeated(&(result.next_node.position), node->ply)) {
-    result.type = MOVE_GAMEOVER;
-    result.score = get_draw_score(&(result.next_node.position), node->ply);
-    return result;
+  if (is_repeated(&(result->next_node.position), node->ply)) {
+    result->type = MOVE_GAMEOVER;
+    result->score = get_draw_score(&(result->next_node.position), node->ply);
+    return;
   }
 
   tbassert(victims.stomped == 0
@@ -305,8 +305,8 @@ moveEvaluationResult evaluateMove(searchNode *node, move_t mv, move_t killer_a,
 
   // Do not consider moves that are blunders while in quiescence.
   if (node->quiescence && blunder) {
-    result.type = MOVE_IGNORE;
-    return result;
+    result->type = MOVE_IGNORE;
+    return;
   }
 
   // Extend the search-depth by 1 if we captured a piece, since that means the
@@ -326,7 +326,7 @@ moveEvaluationResult evaluateMove(searchNode *node, move_t mv, move_t killer_a,
     }
   }
 
-  result.type = MOVE_EVALUATED;
+  result->type = MOVE_EVALUATED;
   int search_depth = ext + node->depth - 1;
 
   // Check if we need to perform a reduced-depth search.
@@ -335,39 +335,37 @@ moveEvaluationResult evaluateMove(searchNode *node, move_t mv, move_t killer_a,
   //  reduced-depth search did not trigger a cut-off.
   if (next_reduction > 0) {
     search_depth -= next_reduction;
-    int reduced_depth_score = -scout_search(&(result.next_node), search_depth,
+    int reduced_depth_score = -scout_search(&(result->next_node), search_depth,
                                             node_count_serial);
     if (reduced_depth_score < node->beta) {
-      result.score = reduced_depth_score;
-      return result;
+      result->score = reduced_depth_score;
+      return;
     }
     search_depth += next_reduction;
   }
 
   // Check if we should abort due to time control.
   if (abortf) {
-    result.score = 0;
-    result.type = MOVE_IGNORE;
-    return result;
+    result->score = 0;
+    result->type = MOVE_IGNORE;
+    return;
   }
 
 
   if (type == SEARCH_SCOUT) {
-    result.score = -scout_search(&(result.next_node), search_depth,
+    result->score = -scout_search(&(result->next_node), search_depth,
                                  node_count_serial);
   } else {
     if (node->legal_move_count == 0 || node->quiescence) {
-      result.score = -searchPV(&(result.next_node), search_depth, node_count_serial);
+      result->score = -searchPV(&(result->next_node), search_depth, node_count_serial);
     } else {
-      result.score = -scout_search(&(result.next_node), search_depth,
+      result->score = -scout_search(&(result->next_node), search_depth,
                             node_count_serial);
-      if (result.score > node->alpha) {
-        result.score = -searchPV(&(result.next_node), node->depth + ext - 1, node_count_serial);
+      if (result->score > node->alpha) {
+        result->score = -searchPV(&(result->next_node), node->depth + ext - 1, node_count_serial);
       }
     }
   }
-
-  return result;
 }
 
 // Incremental sort of the move list.
