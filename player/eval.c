@@ -18,7 +18,6 @@ int RANDOMIZE;
 int PCENTRAL;
 int HATTACK;
 int PBETWEEN;
-int PCENTRAL;
 int KFACE;
 int KAGGRESSIVE;
 int MOBILITY;
@@ -27,25 +26,22 @@ int PAWNPIN;
 // Heuristics for static evaluation - described in the google doc
 // mentioned in the handout.
 
+static const ev_score_t pcentral_values[BOARD_WIDTH][BOARD_WIDTH] = {
+  {199, 292, 367, 416, 434, 434, 416, 367, 292, 199},
+  {292, 400, 490, 552, 575, 575, 552, 490, 400, 292},
+  {367, 490, 599, 683, 717, 717, 683, 599, 490, 367},
+  {416, 552, 683, 799, 858, 858, 799, 683, 552, 416},
+  {434, 575, 717, 858, 1000, 1000, 858, 717, 575, 434},
+  {434, 575, 717, 858, 1000, 1000, 858, 717, 575, 434},
+  {416, 552, 683, 799, 858, 858, 799, 683, 552, 416},
+  {367, 490, 599, 683, 717, 717, 683, 599, 490, 367},
+  {292, 400, 490, 552, 575, 575, 552, 490, 400, 292},
+  {199, 292, 367, 416, 434, 434, 416, 367, 292, 199}
+};
 
 // PCENTRAL heuristic: Bonus for Pawn near center of board
 ev_score_t pcentral(fil_t f, rnk_t r) {
-  fil_t df;
-  if (f > 4) {
-    df = f - BOARD_WIDTH/2;
-  } else {
-    df = BOARD_WIDTH/2 - f - 1;
-  }
-
-  rnk_t dr;
-  if (r > 4) {
-    dr = r - BOARD_WIDTH/2;
-  } else {
-    dr = BOARD_WIDTH/2 - r - 1;
-  }
-
-  double bonus = 1 - sqrt(df * df + dr * dr) * sqrt(2) / (BOARD_WIDTH);
-  return PCENTRAL * bonus;
+  return pcentral_values[f][r];
 }
 
 
@@ -198,8 +194,8 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
   laser_map[sq] = true;
   h_attackable += h_dist(sq, o_king_sq);
 
-  bool loop = true;
-  while (loop) {
+  bool brk = false;
+  while (!brk) {
     sq += beam_of(bdir);
     tbassert(sq < ARR_SIZE && sq >= 0, "sq: %d\n", sq);
 
@@ -219,15 +215,15 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
 
         bdir = reflect_of(bdir, ori_of(piece));
         if (bdir < 0) {  // Hit back of Pawn
-          loop = false;
+          brk = true;
         }
         break;
       case KING:  // King
         h_attackable += h_dist(sq, o_king_sq);
-        loop = false;  // sorry, game over my friend!
+        brk = true;  // sorry, game over my friend!
         break;
       case INVALID:  // Ran off edge of board
-        loop = false;
+        brk = true;
         break;
       default:  // Shouldna happen, man!
         tbassert(false, "Not cool, man.  Not cool.\n");
@@ -249,25 +245,7 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
   }
 
   scores[opp_c] += o_mobility * MOBILITY;
-
-  if (verbose) {
-    if (opp_c == WHITE) {
-      printf("MOBILITY bonus %d for White \n", o_mobility);
-    } else {
-      printf("MOBILITY bonus %d for Black \n", o_mobility);
-    }
-  }
-
   scores[c] += (int)h_attackable * HATTACK;
-
-  if (verbose) {
-    if (c == WHITE) {
-      printf("HATTACK bonus %f for White \n", h_attackable);
-    } else {
-      printf("HATTACK bonus %f for Black \n", h_attackable);
-    }
-  }
-
   scores[opp_c] += PAWNPIN * (o_pawns - o_pinned_pawns);
 }
 
@@ -276,10 +254,7 @@ score_t eval(position_t *p, bool verbose) {
   // seed rand_r with a value of 1, as per
   // http://linux.die.net/man/3/rand_r
   static __thread unsigned int seed = 1;
-  // verbose = true: print out components of score
   ev_score_t score[2] = { 0, 0 };
-  ev_score_t bonus;
-  char buf[MAX_CHARS_IN_MOVE];
 
   // should also be able to do this for pcentral, but floating point rounding gives
   // different result (not necessarily a worse result though)
@@ -298,9 +273,6 @@ score_t eval(position_t *p, bool verbose) {
       square_t sq = square_of(f, r);
       piece_t x = p->board[sq];
       color_t c = color_of(x);
-      if (verbose) {
-        square_to_str(sq, buf, MAX_CHARS_IN_MOVE);
-      }
 
       switch (ptype_of(x)) {
         case EMPTY:
@@ -313,24 +285,19 @@ score_t eval(position_t *p, bool verbose) {
           p_between[c] += pbetween(f, r, w_f_king, w_r_king, b_f_king, b_r_king);
 
           // PCENTRAL heuristic
-          bonus = pcentral(f, r);
-          if (verbose) {
-            printf("PCENTRAL bonus %d for %s Pawn on %s\n", bonus, color_to_str(c), buf);
-          }
-          score[c] += bonus;
+          score[c] += pcentral(f,r);
           break;
 
         case KING:
           // KFACE heuristic
           // KAGGRESSIVE heuristic
           if (c == WHITE) {
-            bonus = kface(w_f_king, w_r_king, b_f_king, b_r_king, ori_of(x));
-            bonus += kaggressive(w_f_king, w_r_king, b_f_king, b_r_king);
+            score[c] += kface(w_f_king, w_r_king, b_f_king, b_r_king, ori_of(x))
+             + kaggressive(w_f_king, w_r_king, b_f_king, b_r_king);
           } else {
-            bonus = kface(b_f_king, b_r_king, w_f_king, w_r_king, ori_of(x));
-            bonus += kaggressive(b_f_king, b_r_king, w_f_king, w_r_king);
+            score[c] += kface(b_f_king, b_r_king, w_f_king, w_r_king, ori_of(x))
+              + kaggressive(b_f_king, b_r_king, w_f_king, w_r_king);
           }
-          score[c] += bonus;
           break;
         case INVALID:
           break;
