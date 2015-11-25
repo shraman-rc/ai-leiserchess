@@ -28,8 +28,12 @@ ifeq ($(DEBUG),1)
 	CFLAGS += -O0 -DDEBUG $(PFLAG)
 	LDFLAGS += -O0
 else
-	CFLAGS += -O3 -flto -fcilkplus -DNDEBUG  $(PFLAG)
-	LDFLAGS += -O3 -flto
+	ifneq ($(FLNO),1)
+	CFLAGS +=  -flto
+	LDFLAGS += -flto
+	endif
+	CFLAGS += -O3 -fcilkplus -DNDEBUG  $(PFLAG)
+	LDFLAGS += -O3
 endif
 
 ifeq ($(REFERENCE),1)
