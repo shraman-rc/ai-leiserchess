@@ -22,9 +22,9 @@
 // board is 8 x 8 or 10 x 10
 #define BOARD_WIDTH 10
 
-typedef int16_t square_t;
-typedef int8_t rnk_t;
-typedef int8_t fil_t;
+typedef uint8_t square_t;
+typedef uint8_t rnk_t;
+typedef uint8_t fil_t;
 
 #define FIL_ORIGIN ((ARR_WIDTH - BOARD_WIDTH) / 2)
 #define RNK_ORIGIN ((ARR_WIDTH - BOARD_WIDTH) / 2)
