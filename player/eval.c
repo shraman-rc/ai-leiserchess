@@ -30,25 +30,21 @@ int PAWNPIN;
 
 // PCENTRAL heuristic: Bonus for Pawn near center of board
 ev_score_t pcentral(fil_t f, rnk_t r) {
-  double df;
+  fil_t df;
   if (f > 4) {
     df = f - BOARD_WIDTH/2;
   } else {
     df = BOARD_WIDTH/2 - f - 1;
   }
 
-  double dr;
+  rnk_t dr;
   if (r > 4) {
     dr = r - BOARD_WIDTH/2;
   } else {
     dr = BOARD_WIDTH/2 - r - 1;
   }
-  // double dr;
-  // double df = BOARD_WIDTH/2 - f - 1;
-  // if (df < 0)  df = f - BOARD_WIDTH/2;
-  // double dr = BOARD_WIDTH/2 - r - 1;
-  // if (dr < 0) dr = r - BOARD_WIDTH/2;
-  double bonus = 1 - sqrt(df * df + dr * dr) / (BOARD_WIDTH / sqrt(2));
+
+  double bonus = 1 - sqrt(df * df + dr * dr) * sqrt(2) / (BOARD_WIDTH);
   return PCENTRAL * bonus;
 }
 
