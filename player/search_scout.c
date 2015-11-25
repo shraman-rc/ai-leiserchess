@@ -59,7 +59,8 @@ static score_t scout_search(searchNode *node, int depth,
   }
 
   // Pre-evaluate this position.
-  leafEvalResult pre_evaluation_result = evaluate_as_leaf(node, SEARCH_SCOUT);
+  leafEvalResult pre_evaluation_result;
+  evaluate_as_leaf(node, SEARCH_SCOUT, &pre_evaluation_result);
 
   // If we decide to stop searching, return the pre-evaluation score.
   if (pre_evaluation_result.type == MOVE_EVALUATED) {

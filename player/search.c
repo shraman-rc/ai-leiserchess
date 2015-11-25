@@ -101,7 +101,9 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
   initialize_pv_node(node, depth);
 
   // Pre-evaluate the node to determine if we need to search further.
-  leafEvalResult pre_evaluation_result = evaluate_as_leaf(node, SEARCH_PV);
+
+  leafEvalResult pre_evaluation_result;
+  evaluate_as_leaf(node, SEARCH_PV, &pre_evaluation_result);
 
   // use some information from the pre-evaluation
   int hash_table_move = pre_evaluation_result.hash_table_move;

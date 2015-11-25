@@ -189,33 +189,32 @@ static void print_move_info(move_t mv, int ply) {
 
 // Evaluates the node before performing a full search.
 //   does a few things differently if in scout search.
-leafEvalResult evaluate_as_leaf(searchNode *node, searchType_t type) {
-  leafEvalResult result;
-  result.type = MOVE_IGNORE;
-  result.score = -INF;
-  result.should_enter_quiescence = false;
-  result.hash_table_move = 0;
+void evaluate_as_leaf(searchNode *node, searchType_t type, leafEvalResult* result) {
+  result->type = MOVE_IGNORE;
+  result->score = -INF;
+  result->should_enter_quiescence = false;
+  result->hash_table_move = 0;
 
   // get transposition table record if available.
   ttRec_t *rec = tt_hashtable_get(node->position.key);
   if (rec) {
     if (type == SEARCH_SCOUT && tt_is_usable(rec, node->depth, node->beta)) {
-      result.type = MOVE_EVALUATED;
-      result.score = tt_adjust_score_from_hashtable(rec, node->ply);
-      return result;
+      result->type = MOVE_EVALUATED;
+      result->score = tt_adjust_score_from_hashtable(rec, node->ply);
+      return;
     }
-    result.hash_table_move = tt_move_of(rec);
+    result->hash_table_move = tt_move_of(rec);
   }
 
   // stand pat (having-the-move) bonus
   score_t sps = eval(&(node->position), false) + HMB;
   bool quiescence = (node->depth <= 0);  // are we in quiescence?
-  result.should_enter_quiescence = quiescence;
+  result->should_enter_quiescence = quiescence;
   if (quiescence) {
-    result.score = sps;
-    if (result.score >= node->beta) {
-      result.type = MOVE_EVALUATED;
-      return result;
+    result->score = sps;
+    if (result->score >= node->beta) {
+      result->type = MOVE_EVALUATED;
+      return;
     }
   }
 
@@ -223,14 +222,14 @@ leafEvalResult evaluate_as_leaf(searchNode *node, searchType_t type) {
   if (type == SEARCH_SCOUT && USE_NMM) {
     if (node->depth <= 2) {
       if (node->depth == 1 && sps >= node->beta + 3 * PAWN_VALUE) {
-        result.type = MOVE_EVALUATED;
-        result.score = node->beta;
-        return result;
+        result->type = MOVE_EVALUATED;
+        result->score = node->beta;
+        return;
       }
       if (node->depth == 2 && sps >= node->beta + 5 * PAWN_VALUE) {
-        result.type = MOVE_EVALUATED;
-        result.score = node->beta;
-        return result;
+        result->type = MOVE_EVALUATED;
+        result->score = node->beta;
+        return;
       }
     }
   }
@@ -239,11 +238,10 @@ leafEvalResult evaluate_as_leaf(searchNode *node, searchType_t type) {
   if (type == SEARCH_SCOUT && node->depth <= FUT_DEPTH && node->depth > 0) {
     if (sps + fmarg[node->depth] < node->beta) {
       // treat this ply as a quiescence ply, look only at captures
-      result.should_enter_quiescence = true;
-      result.score = sps;
+      result->should_enter_quiescence = true;
+      result->score = sps;
     }
   }
-  return result;
 }
 
 // Evaluate the move by performing a search.
