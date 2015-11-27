@@ -155,16 +155,23 @@ void mark_laser_path(position_t *p, bool *laser_map, color_t c) {
   }
 }
 
+#define HDV_1(i) (1.0/((i) + 1))
+#define HDV_3(i) HDV_1(i), HDV_1(i+1), HDV_1(i+2),
+const float h_dist_values[BOARD_WIDTH] = {
+  HDV_3(0) HDV_3(3) HDV_3(6) HDV_1(9)
+};
+
 // Harmonic-ish distance: 1/(|dx|+1) + 1/(|dy|+1)
-float h_dist(square_t a, square_t b) {
+float h_dist(square_t a, fil_t f, rnk_t r) {
   //  printf("a = %d, FIL(a) = %d, RNK(a) = %d\n", a, FIL(a), RNK(a));
   //  printf("b = %d, FIL(b) = %d, RNK(b) = %d\n", b, FIL(b), RNK(b));
-  int delta_fil = abs(fil_of(a) - fil_of(b));
-  int delta_rnk = abs(rnk_of(a) - rnk_of(b));
-  float x = (1.0 / (delta_fil + 1)) + (1.0 / (delta_rnk + 1));
-  //  printf("max_dist = %d\n\n", x);
-  return x;
+  int delta_fil = abs(fil_of(a) - f);
+  int delta_rnk = abs(rnk_of(a) - r);
+  return h_dist_values[delta_fil] + h_dist_values[delta_rnk];
 }
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 // PAWNPIN Heuristic --- is a pawn immobilized by the enemy laser.
 // H_SQUARES_ATTACKABLE heuristic: for shooting the enemy king.
@@ -176,23 +183,27 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
   uint8_t o_pinned_pawns = 0;  // number of pinned pawns of color opp_c
   float h_attackable = 0;  // for king of color c
 
+  square_t kloc = p->kloc[c];
+  square_t o_kloc = p->kloc[opp_c];
+  rnk_t o_r_king = rnk_of(o_kloc);
+  fil_t o_f_king = fil_of(o_kloc);
+
   // mark true when hit by laser
   // only used by mobility computation
   bool laser_map[ARR_SIZE] = {false};
 
-  square_t sq = p->kloc[c];
+  square_t sq = kloc;
   int8_t bdir = ori_of(p->board[sq]);
 
   tbassert(ptype_of(p->board[sq]) == KING,
            "ptype: %d\n", ptype_of(p->board[sq]));
-  square_t o_king_sq = p->kloc[opp_c];
-  tbassert(ptype_of(p->board[o_king_sq]) == KING,
-           "ptype: %d\n", ptype_of(p->board[o_king_sq]));
-  tbassert(color_of(p->board[o_king_sq]) == opp_c,
-           "color: %d\n", color_of(p->board[o_king_sq]));
+  tbassert(ptype_of(p->board[o_kloc]) == KING,
+           "ptype: %d\n", ptype_of(p->board[o_kloc]));
+  tbassert(color_of(p->board[o_kloc]) == opp_c,
+           "color: %d\n", color_of(p->board[o_kloc]));
 
   laser_map[sq] = true;
-  h_attackable += h_dist(sq, o_king_sq);
+  h_attackable += h_dist(sq, o_f_king, o_r_king);
 
   bool brk = false;
   while (!brk) {
@@ -204,10 +215,10 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
     piece_t piece = p->board[sq];
     switch (ptype_of(piece)) {
       case EMPTY:  // empty square
-        h_attackable += h_dist(sq, o_king_sq);
+        h_attackable += h_dist(sq, o_f_king, o_r_king);
         break;
       case PAWN:  // Pawn
-        h_attackable += h_dist(sq, o_king_sq);
+        h_attackable += h_dist(sq, o_f_king, o_r_king);
 
         if (color_of(piece) == opp_c) {
           o_pinned_pawns++;
@@ -219,7 +230,7 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
         }
         break;
       case KING:  // King
-        h_attackable += h_dist(sq, o_king_sq);
+        h_attackable += h_dist(sq, o_f_king, o_r_king);
         brk = true;  // sorry, game over my friend!
         break;
       case INVALID:  // Ran off edge of board
@@ -232,12 +243,9 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
   }
 
   uint8_t o_mobility = 0;  // mobility of king of color opp_c
-  if (laser_map[o_king_sq] == false) {
-    o_mobility++;
-  }
-  for (int d = 0; d < 8; ++d) {
-    square_t sq = o_king_sq + dir_of(d);
-    if (rnk_of(sq) >= 0 && rnk_of(sq) < BOARD_WIDTH && fil_of(sq) >= 0 && fil_of(sq) < BOARD_WIDTH) {
+  for (uint8_t f = MAX(o_f_king - 1, 0); f < MIN(o_f_king + 2, BOARD_WIDTH); ++f) {
+    for (uint8_t r = MAX(o_r_king - 1, 0); r < MIN(o_r_king + 2, BOARD_WIDTH); ++r) {
+      square_t sq = square_of(f, r);
       if (laser_map[sq] == false) {
         o_mobility++;
       }

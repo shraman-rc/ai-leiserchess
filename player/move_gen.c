@@ -62,7 +62,7 @@ color_t color_to_move_of(position_t *p) {
   }
 }*/
 
-inline color_t color_of(piece_t x) {
+color_t color_of(piece_t x) {
   return (color_t) ((x >> COLOR_SHIFT) & COLOR_MASK);
 }
 
@@ -143,6 +143,7 @@ void init_zob() {
 
 // For no square, use 0, which is guaranteed to be off board
 inline square_t square_of(fil_t f, rnk_t r) {
+  // square_t s = (((f + FIL_ORIGIN)) << FIL_SHIFT) | (((r + RNK_ORIGIN)));
   square_t s = ARR_WIDTH * (FIL_ORIGIN + f) + RNK_ORIGIN + r;
   DEBUG_LOG(1, "Square of (file %d, rank %d) is %d\n", f, r, s);
   tbassert((s >= 0) && (s < ARR_SIZE), "s: %d\n", s);
@@ -184,7 +185,7 @@ int dir_of(int i) {
 
 
 // directions for laser: NN, EE, SS, WW
-static const int beam[NUM_ORI] = {1, ARR_WIDTH, -1, -ARR_WIDTH};
+static const int8_t beam[NUM_ORI] = {1, ARR_WIDTH, -1, -ARR_WIDTH};
 
 int beam_of(int direction) {
   tbassert(direction >= 0 && direction < NUM_ORI, "dir: %d\n", direction);
@@ -193,7 +194,7 @@ int beam_of(int direction) {
 
 // reflect[beam_dir][pawn_orientation]
 // -1 indicates back of Pawn
-int reflect[NUM_ORI][NUM_ORI] = {
+int8_t reflect[NUM_ORI][NUM_ORI] = {
   //  NW  NE  SE  SW
   { -1, -1, EE, WW},   // NN
   { NN, -1, -1, SS},   // EE
