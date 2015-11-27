@@ -189,8 +189,14 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
   fil_t o_f_king = fil_of(o_kloc);
 
   // mark true when hit by laser
-  // only used by mobility computation
-  bool laser_map[ARR_SIZE] = {false};
+  // only used by mobility computation, so only need to mark the eight squares around o_kloc
+  bool laser_map[ARR_SIZE];
+  for (uint8_t f = MAX(o_f_king - 1, 0); f < o_f_king + 2; ++f) {
+    for (uint8_t r = MAX(o_r_king - 1, 0); r < o_r_king + 2; ++r) {
+      square_t sq = square_of(f, r);
+      laser_map[sq] = false;
+    }
+  }
 
   square_t sq = kloc;
   int8_t bdir = ori_of(p->board[sq]);
@@ -202,7 +208,7 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
   tbassert(color_of(p->board[o_kloc]) == opp_c,
            "color: %d\n", color_of(p->board[o_kloc]));
 
-  laser_map[sq] = true;
+  // laser_map[sq] = true;  // kings cannot occupy same square so don't have to do this
   h_attackable += h_dist(sq, o_f_king, o_r_king);
 
   bool brk = false;
