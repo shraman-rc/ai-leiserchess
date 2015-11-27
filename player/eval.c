@@ -284,9 +284,9 @@ score_t eval(position_t *p, bool verbose) {
 
   for (fil_t f = 0; f < BOARD_WIDTH; f++) {
     for (rnk_t r = 0; r < BOARD_WIDTH; r++) {
-      square_t sq = square_of(f, r);
+      square_t sq = ARR_WIDTH * (FIL_ORIGIN + f) + RNK_ORIGIN + r;
       piece_t x = p->board[sq];
-      color_t c = color_of(x);
+      color_t c = (color_t) ((x >> COLOR_SHIFT) & COLOR_MASK);
 
       switch (ptype_of(x)) {
         case EMPTY:
