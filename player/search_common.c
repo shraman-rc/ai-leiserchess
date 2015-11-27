@@ -82,11 +82,11 @@ static score_t get_draw_score(position_t *p, int ply) {
   uint64_t cur = p->key;
   score_t score;
   while (true) {
-    if (!zero_victims(x->victims)) {
+    if (!zero_victims(&x->victims)) {
       break;  // cannot be a repetition
     }
     x = x->history;
-    if (!zero_victims(x->victims)) {
+    if (!zero_victims(&x->victims)) {
       break;  // cannot be a repetition
     }
     if (x->key == cur) {  // is a repetition
@@ -115,11 +115,11 @@ static bool is_repeated(position_t *p, int ply) {
   uint64_t cur = p->key;
 
   while (true) {
-    if (!zero_victims(x->victims)) {
+    if (!zero_victims(&x->victims)) {
       break;  // cannot be a repetition
     }
     x = x->history;
-    if (!zero_victims(x->victims)) {
+    if (!zero_victims(&x->victims)) {
       break;  // cannot be a repetition
     }
     if (x->key == cur) {  // is a repetition
@@ -135,15 +135,15 @@ static bool is_repeated(position_t *p, int ply) {
 // check the victim pieces returned by the move to determine if it's a
 // game-over situation.  If so, also calculate the score depending on
 // the pov (which player's point of view)
-static bool is_game_over(victims_t victims, int pov, int ply) {
-  tbassert(ptype_of(victims.stomped) != KING, "Stomped a king.\n");
-  return ptype_of(victims.zapped) == KING;
+static bool is_game_over(victims_t* victims, int pov, int ply) {
+  tbassert(ptype_of(victims->stomped) != KING, "Stomped a king.\n");
+  return ptype_of(victims->zapped) == KING;
 }
 
-static score_t get_game_over_score(victims_t victims, int pov, int ply) {
-  tbassert(ptype_of(victims.stomped) != KING, "Stomped a king.\n");
+static score_t get_game_over_score(victims_t* victims, int pov, int ply) {
+  tbassert(ptype_of(victims->stomped) != KING, "Stomped a king.\n");
   // score negative when victims.zapped == WHITE
-  score_t score = -1*(1 - 2*(color_of(victims.zapped)))*WIN*pov;
+  score_t score = -1*(1 - 2*(color_of(victims->zapped)))*WIN*pov;
   return score + (1 - 2*(score >= 0))*ply;
 }
 
@@ -255,15 +255,16 @@ void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
   result->next_node.parent = node;
 
   // Make the move, and get any victim pieces.
-  victims_t victims = make_move(&(node->position), &(result->next_node.position),
-                                mv);
+  bool isko = make_move(&(node->position), &(result->next_node.position), mv);
 
   // Check whether this move changes the board state.
   //   such moves are not legal.
-  if (is_KO(victims)) {
+  if (isko) {
     result->type = MOVE_ILLEGAL;
     return;
   }
+
+  victims_t* victims = &result->next_node.position.victims;
 
   // Check whether the game is over.
   if (is_game_over(victims, node->pov, node->ply)) {
@@ -286,18 +287,18 @@ void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
     return;
   }
 
-  tbassert(victims.stomped == 0
-           || color_of(victims.stomped) != node->fake_color_to_move,
+  tbassert(victims->stomped == 0
+           || color_of(victims->stomped) != node->fake_color_to_move,
            "stomped = %d, color = %d, fake_color_to_move = %d\n",
-           victims.stomped, color_of(victims.stomped),
+           victims->stomped, color_of(victims->stomped),
            node->fake_color_to_move);
 
 
   // Check whether we caused our own piece to be zapped. This isn't considered
   //   a blunder if we also managed to stomp an enemy piece in the process.
-  if (victims.stomped == 0 &&
-      victims.zapped > 0 &&
-      color_of(victims.zapped) == node->fake_color_to_move) {
+  if (victims->stomped == 0 &&
+      victims->zapped > 0 &&
+      color_of(victims->zapped) == node->fake_color_to_move) {
     blunder = true;
   }
 

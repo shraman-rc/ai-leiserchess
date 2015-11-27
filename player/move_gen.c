@@ -521,7 +521,8 @@ square_t fire(position_t *p) {
 
 
 // return victim pieces or KO
-victims_t make_move(position_t *old, position_t *p, move_t mv) {
+// return whether is_KO
+bool make_move(position_t *old, position_t *p, move_t mv) {
   tbassert(mv != 0, "mv was zero.\n");
 
   WHEN_DEBUG_VERBOSE(char buf[MAX_CHARS_IN_MOVE]);
@@ -572,9 +573,9 @@ victims_t make_move(position_t *old, position_t *p, move_t mv) {
     p->victims.zapped = 0;
 
     if (USE_KO &&  // Ko rule
-        zero_victims(p->victims) &&
+        zero_victims(&p->victims) &&
         (p->key == (old->key ^ zob_color))) {
-      return KO();
+      return true;  // KO();
     }
   } else {  // we definitely hit something with laser
     p->victims.zapped = p->board[victim_sq];
@@ -592,7 +593,7 @@ victims_t make_move(position_t *old, position_t *p, move_t mv) {
       });
   }
 
-  return p->victims;
+  return false; // p->victims;
 }
 
 // helper function for do_perft
@@ -737,12 +738,12 @@ bool is_ILLEGAL(victims_t victims) {
       (victims.zapped == ILLEGAL_ZAPPED);
 }
 
-bool zero_victims(victims_t victims) {
-  return (victims.stomped == 0) &&
-      (victims.zapped == 0);
+bool zero_victims(victims_t* victims) {
+  return (victims->stomped == 0) &&
+      (victims->zapped == 0);
 }
 
-bool victim_exists(victims_t victims) {
-  return (victims.stomped > 0) ||
-      (victims.zapped > 0);
+bool victim_exists(victims_t* victims) {
+  return (victims->stomped > 0) ||
+      (victims->zapped > 0);
 }

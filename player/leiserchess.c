@@ -151,7 +151,15 @@ victims_t make_from_string(position_t *old, position_t *p,
     }
   }
 
-  return (mv == 0) ? ILLEGAL() : make_move(old, p, mv);
+  if (mv == 0) {
+    return ILLEGAL();
+  } else {
+    if (make_move(old, p, mv)) {
+      return KO();
+    } else {
+      return p->victims;
+    }
+  }
 }
 
 typedef enum {

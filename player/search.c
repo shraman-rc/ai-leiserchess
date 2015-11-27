@@ -258,11 +258,12 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
     (*node_count_serial)++;
 
     // make the move.
-    victims_t x = make_move(&(rootNode.position), &(next_node.position), mv);
-
-    if (is_KO(x)) {
+    bool isko = make_move(&(rootNode.position), &(next_node.position), mv);
+    if (isko) {
       continue;  // not a legal move
     }
+
+    victims_t* x = &rootNode.position.victims;
 
     if (is_game_over(x, rootNode.pov, rootNode.ply)) {
       score = get_game_over_score(x, rootNode.pov, rootNode.ply);
