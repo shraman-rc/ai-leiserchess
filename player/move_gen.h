@@ -42,7 +42,7 @@ typedef uint8_t fil_t;
 // ptype_of is called most often, followed by color_of, followed by ori_of so the best order is:
 // high--orientation, color, ptype--low
 // TODO: figure out why changing the bit orders fails (maybe hard coded stuff somewhere)
-typedef int8_t piece_t;
+typedef uint8_t piece_t;
 
 // -----------------------------------------------------------------------------
 // piece types

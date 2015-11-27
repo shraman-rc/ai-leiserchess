@@ -62,7 +62,7 @@ color_t color_to_move_of(position_t *p) {
   }
 }*/
 
-color_t color_of(piece_t x) {
+inline color_t color_of(piece_t x) {
   return (color_t) ((x >> COLOR_SHIFT) & COLOR_MASK);
 }
 
