@@ -296,18 +296,17 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
           break;
         case PAWN:
           if (laser_map[sq]) continue;  // Piece is pinned down by laser.
-        case KING:
-          // directions
           for (int d = 0; d < 8; d++) {
             int dest = sq + dir_of(d);
             // Skip moves into invalid squares, squares occupied by
             // kings, nonempty squares if x is a king, and squares with
             // pawns of matching color
-            if (ptype_of(p->board[dest]) == INVALID ||
-                ptype_of(p->board[dest]) == KING ||
-                (typ == KING && ptype_of(p->board[dest]) != EMPTY) ||
-                (typ == PAWN && ptype_of(p->board[dest]) == PAWN &&
-                 color == color_of(p->board[dest]))) {
+            piece_t dest_piece = p->board[dest];
+            ptype_t dest_piece_ptype = ptype_of(dest_piece);
+            if (dest_piece_ptype == INVALID ||
+                dest_piece_ptype == KING ||
+                (dest_piece_ptype == PAWN &&
+                 color == color_of(dest_piece))) {
               continue;    // illegal square
             }
 
@@ -330,10 +329,40 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
             tbassert(move_count < MAX_NUM_MOVES, "move_count: %d\n", move_count);
             sortable_move_list[move_count++] = move_of(typ, (rot_t) rot, sq, sq);
           }
-          if (typ == KING) {  // Also generate null move
+          break;
+        case KING:
+          // directions
+          for (int d = 0; d < 8; d++) {
+            int dest = sq + dir_of(d);
+            // Skip moves into invalid squares, squares occupied by
+            // kings, nonempty squares if x is a king, and squares with
+            // pawns of matching color
+            if (ptype_of(p->board[dest]) != EMPTY) {
+              continue;    // illegal square
+            }
+
+            WHEN_DEBUG_VERBOSE(char buf[MAX_CHARS_IN_MOVE]);
+            WHEN_DEBUG_VERBOSE({
+                move_to_str(move_of(typ, (rot_t) 0, sq, dest), buf, MAX_CHARS_IN_MOVE);
+                DEBUG_LOG(1, "Before: %s ", buf);
+              });
             tbassert(move_count < MAX_NUM_MOVES, "move_count: %d\n", move_count);
-            sortable_move_list[move_count++] = move_of(typ, (rot_t) 0, sq, sq);
+            sortable_move_list[move_count++] = move_of(typ, (rot_t) 0, sq, dest);
+
+            WHEN_DEBUG_VERBOSE({
+                move_to_str(get_move(sortable_move_list[move_count-1]), buf, MAX_CHARS_IN_MOVE);
+                DEBUG_LOG(1, "After: %s\n", buf);
+              });
           }
+
+          // rotations - three directions possible
+          for (int rot = 1; rot < 4; ++rot) {
+            tbassert(move_count < MAX_NUM_MOVES, "move_count: %d\n", move_count);
+            sortable_move_list[move_count++] = move_of(typ, (rot_t) rot, sq, sq);
+          }
+
+          tbassert(move_count < MAX_NUM_MOVES, "move_count: %d\n", move_count);
+          sortable_move_list[move_count++] = move_of(typ, (rot_t) 0, sq, sq);
           break;
         case INVALID:
         default:

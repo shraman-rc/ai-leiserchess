@@ -37,17 +37,11 @@ typedef uint32_t sort_key_t;
 static const uint64_t SORT_MASK = (1ULL << 32) - 1;
 static const int SORT_SHIFT = 32;
 
-/*
-static sort_key_t sort_key(sortable_move_t mv) {
-  return (sort_key_t) ((mv >> SORT_SHIFT) & SORT_MASK);
-}
-*/
-
 static void set_sort_key(sortable_move_t *mv, sort_key_t key) {
   // sort keys must not exceed SORT_MASK
   //  assert ((0 <= key) && (key <= SORT_MASK));
-  *mv = ((((uint64_t) key) & SORT_MASK) << SORT_SHIFT) |
-        (*mv & ~(SORT_MASK << SORT_SHIFT));
+  tbassert(*mv <= SORT_MASK, "set_sort_key assumes high bits of mv are 0");
+  *mv |= ((uint64_t)key & SORT_MASK) << SORT_SHIFT;
   return;
 }
 
@@ -433,7 +427,7 @@ static int get_sortable_move_list(searchNode *node, sortable_move_t * move_list,
 
   // sort special moves to the front
   for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
-    move_t mv = get_move(move_list[mv_index]);
+    move_t mv = move_list[mv_index];   // don't use get_move. assumes generate_all doesn't bungle up high bits
     if (mv == hash_table_move) {
       set_sort_key(&move_list[mv_index], SORT_MASK);
     } else if (mv == killer_a) {
@@ -446,6 +440,7 @@ static int get_sortable_move_list(searchNode *node, sortable_move_t * move_list,
       square_t fs  = from_square(mv);
       int      ot  = ORI_MASK & (ori_of(node->position.board[fs]) + ro);
       square_t ts  = to_square(mv);
+
       set_sort_key(&move_list[mv_index],
                    best_move_history[BMH(fake_color_to_move, pce, ts, ot)]);
     }
