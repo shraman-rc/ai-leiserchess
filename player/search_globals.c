@@ -1,7 +1,8 @@
 // Copyright (c) 2015 MIT License by 6.172 Staff
 
-#define __KMT_dim__ [MAX_PLY_IN_SEARCH*4]  // NOLINT(whitespace/braces)
-#define KMT(ply, id) (4 * ply + id)
+#define KILLERS_PER_PLY 4
+#define __KMT_dim__ [MAX_PLY_IN_SEARCH*KILLERS_PER_PLY]  // NOLINT(whitespace/braces)
+#define KMT(ply, id) (KILLERS_PER_PLY * ply + id)
 static move_t killer __KMT_dim__;  // up to 4 killers
 
 // Best move history table and lookup function
