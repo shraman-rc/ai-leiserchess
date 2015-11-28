@@ -157,7 +157,7 @@ void mark_laser_path(position_t *p, bool *laser_map, color_t c) {
 
 #define HDV_1(i) (1.0/((i) + 1))
 #define HDV_3(i) HDV_1(i), HDV_1(i+1), HDV_1(i+2),
-const float h_dist_values[BOARD_WIDTH] = {
+static const float h_dist_values[BOARD_WIDTH] = {
   HDV_3(0) HDV_3(3) HDV_3(6) HDV_1(9)
 };
 
@@ -223,6 +223,11 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
       case EMPTY:  // empty square
         h_attackable += h_dist(sq, o_f_king, o_r_king);
         break;
+
+      case INVALID:  // Ran off edge of board
+        brk = true;
+        break;
+
       case PAWN:  // Pawn
         h_attackable += h_dist(sq, o_f_king, o_r_king);
 
@@ -235,13 +240,12 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
           brk = true;
         }
         break;
+
       case KING:  // King
         h_attackable += h_dist(sq, o_f_king, o_r_king);
         brk = true;  // sorry, game over my friend!
         break;
-      case INVALID:  // Ran off edge of board
-        brk = true;
-        break;
+
       default:  // Shouldna happen, man!
         tbassert(false, "Not cool, man.  Not cool.\n");
         break;
