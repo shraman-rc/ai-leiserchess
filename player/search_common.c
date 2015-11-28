@@ -37,17 +37,11 @@ typedef uint32_t sort_key_t;
 static const uint64_t SORT_MASK = (1ULL << 32) - 1;
 static const int SORT_SHIFT = 32;
 
-/*
-static sort_key_t sort_key(sortable_move_t mv) {
-  return (sort_key_t) ((mv >> SORT_SHIFT) & SORT_MASK);
-}
-*/
-
 static void set_sort_key(sortable_move_t *mv, sort_key_t key) {
   // sort keys must not exceed SORT_MASK
   //  assert ((0 <= key) && (key <= SORT_MASK));
-  *mv = ((((uint64_t) key) & SORT_MASK) << SORT_SHIFT) |
-        (*mv & ~(SORT_MASK << SORT_SHIFT));
+  tbassert(*mv <= SORT_MASK, "set_sort_key assumes high bits of mv are 0");
+  *mv |= ((uint64_t)key & SORT_MASK) << SORT_SHIFT;
   return;
 }
 
@@ -82,11 +76,11 @@ static score_t get_draw_score(position_t *p, int ply) {
   uint64_t cur = p->key;
   score_t score;
   while (true) {
-    if (!zero_victims(x->victims)) {
+    if (!zero_victims(&x->victims)) {
       break;  // cannot be a repetition
     }
     x = x->history;
-    if (!zero_victims(x->victims)) {
+    if (!zero_victims(&x->victims)) {
       break;  // cannot be a repetition
     }
     if (x->key == cur) {  // is a repetition
@@ -115,11 +109,11 @@ static bool is_repeated(position_t *p, int ply) {
   uint64_t cur = p->key;
 
   while (true) {
-    if (!zero_victims(x->victims)) {
+    if (!zero_victims(&x->victims)) {
       break;  // cannot be a repetition
     }
     x = x->history;
-    if (!zero_victims(x->victims)) {
+    if (!zero_victims(&x->victims)) {
       break;  // cannot be a repetition
     }
     if (x->key == cur) {  // is a repetition
@@ -135,15 +129,15 @@ static bool is_repeated(position_t *p, int ply) {
 // check the victim pieces returned by the move to determine if it's a
 // game-over situation.  If so, also calculate the score depending on
 // the pov (which player's point of view)
-static bool is_game_over(victims_t victims, int pov, int ply) {
-  tbassert(ptype_of(victims.stomped) != KING, "Stomped a king.\n");
-  return ptype_of(victims.zapped) == KING;
+static bool is_game_over(victims_t* victims, int pov, int ply) {
+  tbassert(ptype_of(victims->stomped) != KING, "Stomped a king.\n");
+  return ptype_of(victims->zapped) == KING;
 }
 
-static score_t get_game_over_score(victims_t victims, int pov, int ply) {
-  tbassert(ptype_of(victims.stomped) != KING, "Stomped a king.\n");
+static score_t get_game_over_score(victims_t* victims, int pov, int ply) {
+  tbassert(ptype_of(victims->stomped) != KING, "Stomped a king.\n");
   // score negative when victims.zapped == WHITE
-  score_t score = -1*(1 - 2*(color_of(victims.zapped)))*WIN*pov;
+  score_t score = -1*(1 - 2*(color_of(victims->zapped)))*WIN*pov;
   return score + (1 - 2*(score >= 0))*ply;
 }
 
@@ -189,33 +183,32 @@ static void print_move_info(move_t mv, int ply) {
 
 // Evaluates the node before performing a full search.
 //   does a few things differently if in scout search.
-leafEvalResult evaluate_as_leaf(searchNode *node, searchType_t type) {
-  leafEvalResult result;
-  result.type = MOVE_IGNORE;
-  result.score = -INF;
-  result.should_enter_quiescence = false;
-  result.hash_table_move = 0;
+void evaluate_as_leaf(searchNode *node, searchType_t type, leafEvalResult* result) {
+  result->type = MOVE_IGNORE;
+  result->score = -INF;
+  result->should_enter_quiescence = false;
+  result->hash_table_move = 0;
 
   // get transposition table record if available.
   ttRec_t *rec = tt_hashtable_get(node->position.key);
   if (rec) {
     if (type == SEARCH_SCOUT && tt_is_usable(rec, node->depth, node->beta)) {
-      result.type = MOVE_EVALUATED;
-      result.score = tt_adjust_score_from_hashtable(rec, node->ply);
-      return result;
+      result->type = MOVE_EVALUATED;
+      result->score = tt_adjust_score_from_hashtable(rec, node->ply);
+      return;
     }
-    result.hash_table_move = tt_move_of(rec);
+    result->hash_table_move = tt_move_of(rec);
   }
 
   // stand pat (having-the-move) bonus
   score_t sps = eval(&(node->position), false) + HMB;
   bool quiescence = (node->depth <= 0);  // are we in quiescence?
-  result.should_enter_quiescence = quiescence;
+  result->should_enter_quiescence = quiescence;
   if (quiescence) {
-    result.score = sps;
-    if (result.score >= node->beta) {
-      result.type = MOVE_EVALUATED;
-      return result;
+    result->score = sps;
+    if (result->score >= node->beta) {
+      result->type = MOVE_EVALUATED;
+      return;
     }
   }
 
@@ -223,14 +216,14 @@ leafEvalResult evaluate_as_leaf(searchNode *node, searchType_t type) {
   if (type == SEARCH_SCOUT && USE_NMM) {
     if (node->depth <= 2) {
       if (node->depth == 1 && sps >= node->beta + 3 * PAWN_VALUE) {
-        result.type = MOVE_EVALUATED;
-        result.score = node->beta;
-        return result;
+        result->type = MOVE_EVALUATED;
+        result->score = node->beta;
+        return;
       }
       if (node->depth == 2 && sps >= node->beta + 5 * PAWN_VALUE) {
-        result.type = MOVE_EVALUATED;
-        result.score = node->beta;
-        return result;
+        result->type = MOVE_EVALUATED;
+        result->score = node->beta;
+        return;
       }
     }
   }
@@ -239,74 +232,74 @@ leafEvalResult evaluate_as_leaf(searchNode *node, searchType_t type) {
   if (type == SEARCH_SCOUT && node->depth <= FUT_DEPTH && node->depth > 0) {
     if (sps + fmarg[node->depth] < node->beta) {
       // treat this ply as a quiescence ply, look only at captures
-      result.should_enter_quiescence = true;
-      result.score = sps;
+      result->should_enter_quiescence = true;
+      result->score = sps;
     }
   }
-  return result;
 }
 
 // Evaluate the move by performing a search.
-moveEvaluationResult evaluateMove(searchNode *node, move_t mv, move_t killer_a,
-                                  move_t killer_b, searchType_t type,
-                                  uint64_t *node_count_serial) {
+void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
+                  move_t killer_b, searchType_t type,
+                  uint64_t *node_count_serial, moveEvaluationResult* result) {
   int ext = 0;  // extensions
   bool blunder = false;  // shoot our own piece
-  moveEvaluationResult result;
-  result.next_node.subpv[0] = 0;
-  result.next_node.parent = node;
+
+  result->next_node.subpv[0] = 0;
+  result->next_node.parent = node;
 
   // Make the move, and get any victim pieces.
-  victims_t victims = make_move(&(node->position), &(result.next_node.position),
-                                mv);
+  bool isko = make_move(&(node->position), &(result->next_node.position), mv);
 
   // Check whether this move changes the board state.
   //   such moves are not legal.
-  if (is_KO(victims)) {
-    result.type = MOVE_ILLEGAL;
-    return result;
+  if (isko) {
+    result->type = MOVE_ILLEGAL;
+    return;
   }
+
+  victims_t* victims = &result->next_node.position.victims;
 
   // Check whether the game is over.
   if (is_game_over(victims, node->pov, node->ply)) {
     // Compute the end-game score.
-    result.type = MOVE_GAMEOVER;
-    result.score = get_game_over_score(victims, node->pov, node->ply);
-    return result;
+    result->type = MOVE_GAMEOVER;
+    result->score = get_game_over_score(victims, node->pov, node->ply);
+    return;
   }
 
   // Ignore noncapture moves when in quiescence.
   if (zero_victims(victims) && node->quiescence) {
-    result.type = MOVE_IGNORE;
-    return result;
+    result->type = MOVE_IGNORE;
+    return;
   }
 
   // Check whether the board state has been repeated, this results in a draw.
-  if (is_repeated(&(result.next_node.position), node->ply)) {
-    result.type = MOVE_GAMEOVER;
-    result.score = get_draw_score(&(result.next_node.position), node->ply);
-    return result;
+  if (is_repeated(&(result->next_node.position), node->ply)) {
+    result->type = MOVE_GAMEOVER;
+    result->score = get_draw_score(&(result->next_node.position), node->ply);
+    return;
   }
 
-  tbassert(victims.stomped == 0
-           || color_of(victims.stomped) != node->fake_color_to_move,
+  tbassert(victims->stomped == 0
+           || color_of(victims->stomped) != node->fake_color_to_move,
            "stomped = %d, color = %d, fake_color_to_move = %d\n",
-           victims.stomped, color_of(victims.stomped),
+           victims->stomped, color_of(victims->stomped),
            node->fake_color_to_move);
 
 
   // Check whether we caused our own piece to be zapped. This isn't considered
   //   a blunder if we also managed to stomp an enemy piece in the process.
-  if (victims.stomped == 0 &&
-      victims.zapped > 0 &&
-      color_of(victims.zapped) == node->fake_color_to_move) {
+  if (victims->stomped == 0 &&
+      victims->zapped > 0 &&
+      color_of(victims->zapped) == node->fake_color_to_move) {
     blunder = true;
   }
 
   // Do not consider moves that are blunders while in quiescence.
   if (node->quiescence && blunder) {
-    result.type = MOVE_IGNORE;
-    return result;
+    result->type = MOVE_IGNORE;
+    return;
   }
 
   // Extend the search-depth by 1 if we captured a piece, since that means the
@@ -326,7 +319,7 @@ moveEvaluationResult evaluateMove(searchNode *node, move_t mv, move_t killer_a,
     }
   }
 
-  result.type = MOVE_EVALUATED;
+  result->type = MOVE_EVALUATED;
   int search_depth = ext + node->depth - 1;
 
   // Check if we need to perform a reduced-depth search.
@@ -335,39 +328,37 @@ moveEvaluationResult evaluateMove(searchNode *node, move_t mv, move_t killer_a,
   //  reduced-depth search did not trigger a cut-off.
   if (next_reduction > 0) {
     search_depth -= next_reduction;
-    int reduced_depth_score = -scout_search(&(result.next_node), search_depth,
+    int reduced_depth_score = -scout_search(&(result->next_node), search_depth,
                                             node_count_serial);
     if (reduced_depth_score < node->beta) {
-      result.score = reduced_depth_score;
-      return result;
+      result->score = reduced_depth_score;
+      return;
     }
     search_depth += next_reduction;
   }
 
   // Check if we should abort due to time control.
   if (abortf) {
-    result.score = 0;
-    result.type = MOVE_IGNORE;
-    return result;
+    result->score = 0;
+    result->type = MOVE_IGNORE;
+    return;
   }
 
 
   if (type == SEARCH_SCOUT) {
-    result.score = -scout_search(&(result.next_node), search_depth,
+    result->score = -scout_search(&(result->next_node), search_depth,
                                  node_count_serial);
   } else {
     if (node->legal_move_count == 0 || node->quiescence) {
-      result.score = -searchPV(&(result.next_node), search_depth, node_count_serial);
+      result->score = -searchPV(&(result->next_node), search_depth, node_count_serial);
     } else {
-      result.score = -scout_search(&(result.next_node), search_depth,
+      result->score = -scout_search(&(result->next_node), search_depth,
                             node_count_serial);
-      if (result.score > node->alpha) {
-        result.score = -searchPV(&(result.next_node), node->depth + ext - 1, node_count_serial);
+      if (result->score > node->alpha) {
+        result->score = -searchPV(&(result->next_node), node->depth + ext - 1, node_count_serial);
       }
     }
   }
-
-  return result;
 }
 
 // Incremental sort of the move list.
@@ -436,7 +427,7 @@ static int get_sortable_move_list(searchNode *node, sortable_move_t * move_list,
 
   // sort special moves to the front
   for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
-    move_t mv = get_move(move_list[mv_index]);
+    move_t mv = move_list[mv_index];   // don't use get_move. assumes generate_all doesn't bungle up high bits
     if (mv == hash_table_move) {
       set_sort_key(&move_list[mv_index], SORT_MASK);
     } else if (mv == killer_a) {
@@ -449,6 +440,7 @@ static int get_sortable_move_list(searchNode *node, sortable_move_t * move_list,
       square_t fs  = from_square(mv);
       int      ot  = ORI_MASK & (ori_of(node->position.board[fs]) + ro);
       square_t ts  = to_square(mv);
+
       set_sort_key(&move_list[mv_index],
                    best_move_history[BMH(fake_color_to_move, pce, ts, ot)]);
     }

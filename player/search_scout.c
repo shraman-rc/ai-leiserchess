@@ -59,7 +59,8 @@ static score_t scout_search(searchNode *node, int depth,
   }
 
   // Pre-evaluate this position.
-  leafEvalResult pre_evaluation_result = evaluate_as_leaf(node, SEARCH_SCOUT);
+  leafEvalResult pre_evaluation_result;
+  evaluate_as_leaf(node, SEARCH_SCOUT, &pre_evaluation_result);
 
   // If we decide to stop searching, return the pre-evaluation score.
   if (pre_evaluation_result.type == MOVE_EVALUATED) {
@@ -105,9 +106,9 @@ static score_t scout_search(searchNode *node, int depth,
     // increase node count
     __sync_fetch_and_add(node_count_serial, 1);
 
-    moveEvaluationResult result = evaluateMove(node, mv, killer_a, killer_b,
-                                               SEARCH_SCOUT,
-                                               node_count_serial);
+    moveEvaluationResult result;
+    evaluateMove(node, mv, killer_a, killer_b,
+                 SEARCH_SCOUT, node_count_serial, &result);
 
     if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
         || abortf || parallel_parent_aborted(node)) {

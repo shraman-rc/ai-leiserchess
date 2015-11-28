@@ -101,7 +101,9 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
   initialize_pv_node(node, depth);
 
   // Pre-evaluate the node to determine if we need to search further.
-  leafEvalResult pre_evaluation_result = evaluate_as_leaf(node, SEARCH_PV);
+
+  leafEvalResult pre_evaluation_result;
+  evaluate_as_leaf(node, SEARCH_PV, &pre_evaluation_result);
 
   // use some information from the pre-evaluation
   int hash_table_move = pre_evaluation_result.hash_table_move;
@@ -146,15 +148,15 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
   sort_incremental(move_list, num_of_moves);
 
   // Start searching moves.
-  for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {  
+  for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
     move_t mv = get_move(move_list[mv_index]);
 
     num_moves_tried++;
     (*node_count_serial)++;
 
-    moveEvaluationResult result = evaluateMove(node, mv, killer_a, killer_b,
-                                               SEARCH_PV,
-                                               node_count_serial);
+    moveEvaluationResult result;
+    evaluateMove(node, mv, killer_a, killer_b,
+                 SEARCH_PV, node_count_serial, &result);
 
     if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE) {
       continue;
@@ -256,11 +258,12 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
     (*node_count_serial)++;
 
     // make the move.
-    victims_t x = make_move(&(rootNode.position), &(next_node.position), mv);
-
-    if (is_KO(x)) {
+    bool isko = make_move(&(rootNode.position), &(next_node.position), mv);
+    if (isko) {
       continue;  // not a legal move
     }
+
+    victims_t* x = &next_node.position.victims;
 
     if (is_game_over(x, rootNode.pov, rootNode.ply)) {
       score = get_game_over_score(x, rootNode.pov, rootNode.ply);

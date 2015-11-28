@@ -22,9 +22,9 @@
 // board is 8 x 8 or 10 x 10
 #define BOARD_WIDTH 10
 
-typedef int16_t square_t;
-typedef int8_t rnk_t;
-typedef int8_t fil_t;
+typedef uint8_t square_t;
+typedef uint8_t rnk_t;
+typedef uint8_t fil_t;
 
 #define FIL_ORIGIN ((ARR_WIDTH - BOARD_WIDTH) / 2)
 #define RNK_ORIGIN ((ARR_WIDTH - BOARD_WIDTH) / 2)
@@ -41,8 +41,8 @@ typedef int8_t fil_t;
 #define PIECE_SIZE 5  // Number of bits in (ptype, color, orientation)
 // ptype_of is called most often, followed by color_of, followed by ori_of so the best order is:
 // high--orientation, color, ptype--low
-// TODO: figure out why changing the bit orders fails (probably hard coded stuff somewhere)
-typedef int8_t piece_t;
+// TODO: figure out why changing the bit orders fails (maybe hard coded stuff somewhere)
+typedef uint8_t piece_t;
 
 // -----------------------------------------------------------------------------
 // piece types
@@ -140,7 +140,7 @@ typedef struct position {
   piece_t      board[ARR_SIZE];
   struct position  *history;     // history of position
   uint64_t     key;              // hash key
-  uint16_t          ply;              // Even ply are White, odd are Black
+  uint16_t     ply;              // Even ply are White, odd are Black
   move_t       last_move;        // move that led to this position
   victims_t    victims;          // pieces destroyed by shooter or stomper
   square_t     kloc[2];          // location of kings
@@ -177,18 +177,19 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
                  bool strict);
 void do_perft(position_t *gme, int depth, int ply);
 square_t low_level_make_move(position_t *old, position_t *p, move_t mv);
-victims_t make_move(position_t *old, position_t *p, move_t mv);
+bool make_move(position_t *old, position_t *p, move_t mv);
 void display(position_t *p);
 uint64_t compute_zob_key(position_t *p);
 
 victims_t KO();
 victims_t ILLEGAL();
 
+// not used anywhere that speed matters
 bool is_ILLEGAL(victims_t victims);
 bool is_KO(victims_t victims);
-bool zero_victims(victims_t victims);
-bool victim_exists(victims_t victims);
+// use pointers
+bool zero_victims(victims_t* victims);
+bool victim_exists(victims_t* victims);
 
-void mark_laser_path(position_t *p, char *laser_map, color_t c,
-                     char mark_mask);
+void mark_laser_path_pinned_pawns(position_t *p, bool *laser_map, color_t c);
 #endif  // MOVE_GEN_H
