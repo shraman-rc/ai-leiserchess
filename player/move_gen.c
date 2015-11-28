@@ -284,8 +284,12 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
       square_t sq = square_of(f, r);
       piece_t x = p->board[sq];
 
-      ptype_t typ = ptype_of(x);
       color_t color = color_of(x);
+      if (color != color_to_move) {  // Wrong color
+        continue;
+      }
+
+      ptype_t typ = ptype_of(x);
 
       switch (typ) {
         case EMPTY:
@@ -293,9 +297,6 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
         case PAWN:
           if (laser_map[sq]) continue;  // Piece is pinned down by laser.
         case KING:
-          if (color != color_to_move) {  // Wrong color
-            break;
-          }
           // directions
           for (int d = 0; d < 8; d++) {
             int dest = sq + dir_of(d);
