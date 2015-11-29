@@ -58,6 +58,8 @@ bool between(int c, int a, int b) {
   return x;
 }
 
+// TODO: determine which king is on which corner just once (would slightly speed this up)
+// TODO: iteration in eval_incremental without using this function at all
 // PBETWEEN heuristic: Bonus for Pawn at (f, r) in rectangle defined by Kings at the corners
 int pbetween(fil_t f, rnk_t r, fil_t w_f, rnk_t w_r, fil_t b_f, rnk_t b_r) {
   bool is_between =
@@ -282,10 +284,6 @@ score_t eval_incremental(position_t *p, bool verbose) {
   // TODO: store location of zapped piece so that this method can be used if a piece is zapped
   tbassert(p->victims.zapped == 0, "no way to find location of zapped piece\n");
 
-  // seed rand_r with a value of 1, as per
-  // http://linux.die.net/man/3/rand_r
-  static __thread unsigned int seed = 1;
-
   color_t to_move = color_to_move_of(p);
   color_t last_moved = opp_color(to_move);
 
@@ -303,13 +301,186 @@ score_t eval_incremental(position_t *p, bool verbose) {
   //   delta_pawncount--;
   // }
 
+  move_t last_move = p->last_move;
+  square_t from_sq = from_square(last_move);
+  square_t to_sq = to_square(last_move);
+
+  square_t w_kloc = p->kloc[WHITE];
+  square_t b_kloc = p->kloc[BLACK];
+  fil_t w_f_king = fil_of(w_kloc);
+  rnk_t w_r_king = rnk_of(w_kloc);
+  fil_t b_f_king = fil_of(b_kloc);
+  rnk_t b_r_king = rnk_of(b_kloc);
+
   // // PBETWEEN
   // // subtract stomped, zapped
-  // // if last move was a pawn:
-  // //    check if moved in or out of the square of the kings
   // // if last move was a king:
   // //    check all pawns in the changed row and column
-  // ev_score_t delta_pcentral = 0;
+  ev_score_t delta_pbetween = 0;
+  if (p->victims.stomped != 0) {
+    // white stomped black pawn
+    delta_pbetween += pbetween(fil_of(to_sq), rnk_of(to_sq), w_f_king, w_r_king, b_f_king, b_r_king);
+  }
+
+  switch (ptype_mv_of(last_move)) {
+    case PAWN:
+      delta_pbetween -= pbetween(fil_of(from_sq), rnk_of(from_sq), w_f_king, w_r_king, b_f_king, b_r_king);
+      delta_pbetween += pbetween(fil_of(to_sq), rnk_of(to_sq), w_f_king, w_r_king, b_f_king, b_r_king);
+      break;
+    case KING:
+      if (rot_of(last_move) !=  NONE) {
+        // no change to pbetween
+        break;
+      }
+
+      // see if king moved closer or farther
+      // king move can be diagonal...
+      // pbetween for stomped pawn has already been taken care of!
+      fil_t o_f_king;
+      rnk_t o_r_king;
+      if (last_moved == WHITE) {
+        o_f_king = b_f_king;
+        o_r_king = b_r_king;
+      } else {
+        o_f_king = w_f_king;
+        o_r_king = w_r_king;
+      }
+
+      fil_t delta_f_0 = abs(fil_of(from_sq) - o_f_king);
+      fil_t delta_f_1 = abs(fil_of(to_sq) - o_f_king);
+      if (delta_f_0 > delta_f_1) {
+        // king moved closer to opponent
+        // iterate over fil_of(from_sq) with ranks between the two kings
+
+
+        if (o_r_king >= rnk_of(to_sq)) {
+          for (rnk_t r = rnk_of(to_sq); r <= o_r_king; r++) {
+            square_t sq = square_of(fil_of(from_sq), r);
+            if (ptype_of(p->board[sq]) != PAWN) {
+              continue;
+            }
+            if (color_of(p->board[sq]) == WHITE) {
+              // white pawn no longer between the kings
+              delta_pbetween--;
+            } else {
+              delta_pbetween++;
+            }
+          }
+        } else {
+          for (rnk_t r = o_r_king; r <= rnk_of(to_sq); r++) {
+            square_t sq = square_of(fil_of(from_sq), r);
+            if (ptype_of(p->board[sq]) != PAWN) {
+              continue;
+            }
+            if (color_of(p->board[sq]) == WHITE) {
+              // white pawn no longer between the kings
+              delta_pbetween--;
+            } else {
+              delta_pbetween++;
+            }
+          }
+        }
+      } else if (delta_f_0 < delta_f_1) {
+        // king moved away from opponent
+        // iterate over fil_of(to_sq) with ranks between the two kings
+        if (o_r_king >= rnk_of(to_sq)) {
+          for (rnk_t r = rnk_of(to_sq); r <= o_r_king; r++) {
+            square_t sq = square_of(fil_of(to_sq), r);
+            if (ptype_of(p->board[sq]) != PAWN) {
+              continue;
+            }
+            if (color_of(p->board[sq]) == WHITE) {
+              // white pawn now between the kings
+              delta_pbetween++;
+            } else {
+              delta_pbetween--;
+            }
+          }
+        } else {
+          for (rnk_t r = o_r_king; r <= rnk_of(to_sq); r++) {
+            square_t sq = square_of(fil_of(to_sq), r);
+            if (ptype_of(p->board[sq]) != PAWN) {
+              continue;
+            }
+            if (color_of(p->board[sq]) == WHITE) {
+              // white pawn now between the kings
+              delta_pbetween++;
+            } else {
+              delta_pbetween--;
+            }
+          }
+        }
+      }
+
+
+      rnk_t delta_r_0 = abs(rnk_of(from_sq) - o_r_king);
+      rnk_t delta_r_1 = abs(rnk_of(to_sq) - o_r_king);
+      if (delta_r_0 > delta_r_1) {
+        // king moved closer to opponent
+        // iterate over rnk_of(from_sq) with files between the two kings
+        if (o_f_king >= fil_of(to_sq)) {
+          for (fil_t f = fil_of(to_sq); f <= o_f_king; f++) {
+            square_t sq = square_of(rnk_of(from_sq), f);
+            if (ptype_of(p->board[sq]) != PAWN) {
+              continue;
+            }
+            if (color_of(p->board[sq]) == WHITE) {
+              // white pawn no longer between the kings
+              delta_pbetween--;
+            } else {
+              delta_pbetween++;
+            }
+          }
+        } else {
+          for (fil_t f = o_f_king; f <= fil_of(to_sq); f++) {
+            square_t sq = square_of(rnk_of(from_sq), f);
+            if (ptype_of(p->board[sq]) != PAWN) {
+              continue;
+            }
+            if (color_of(p->board[sq]) == WHITE) {
+              // white pawn no longer between the kings
+              delta_pbetween--;
+            } else {
+              delta_pbetween++;
+            }
+          }
+        }
+      } else if (delta_r_0 < delta_r_1) {
+        // king moved away from to opponent
+        // iterate over rnk_of(to_sq) with files between the two kings
+        if (o_f_king >= fil_of(to_sq)) {
+          for (fil_t f = fil_of(to_sq); f <= o_f_king; f++) {
+            square_t sq = square_of(rnk_of(to_sq), f);
+            if (ptype_of(p->board[sq]) != PAWN) {
+              continue;
+            }
+            if (color_of(p->board[sq]) == WHITE) {
+              // white pawn now between the kings
+              delta_pbetween++;
+            } else {
+              delta_pbetween--;
+            }
+          }
+        } else {
+          for (fil_t f = o_f_king; f <= fil_of(to_sq); f++) {
+            square_t sq = square_of(rnk_of(to_sq), f);
+            if (ptype_of(p->board[sq]) != PAWN) {
+              continue;
+            }
+            if (color_of(p->board[sq]) == WHITE) {
+              // white pawn now between the kings
+              delta_pbetween++;
+            } else {
+              delta_pbetween--;
+            }
+          }
+        }
+      }
+      break;
+    default:
+      tbassert(false, "Bogus\n");
+      break;
+  }
 
 
   // PCENTRAL
@@ -318,19 +489,14 @@ score_t eval_incremental(position_t *p, bool verbose) {
   //    subtract previous score, add new score
   ev_score_t delta_pcentral = 0;
 
-  move_t last_move = p->last_move;
-  square_t from_sq = from_square(last_move);
-  square_t to_sq = to_square(last_move);
 
   if (p->victims.stomped != 0) {
-    // white stomps black, increases score
     delta_pcentral += pcentral(fil_of(to_sq), rnk_of(to_sq));
   }
   if (ptype_mv_of(last_move) == PAWN) {
     delta_pcentral -= pcentral(fil_of(from_sq), rnk_of(from_sq));
     delta_pcentral += pcentral(fil_of(to_sq), rnk_of(to_sq));
   }
-
   // if (p->zapped != 0) {
   //   delta_pcentral -= ;
   // }
@@ -338,12 +504,6 @@ score_t eval_incremental(position_t *p, bool verbose) {
   // KFACE
   // KAGGRESSIVE
   ev_score_t k_scores = 0;
-  square_t w_kloc = p->kloc[WHITE];
-  square_t b_kloc = p->kloc[BLACK];
-  rnk_t w_r_king = rnk_of(w_kloc);
-  fil_t w_f_king = fil_of(w_kloc);
-  rnk_t b_r_king = rnk_of(b_kloc);
-  fil_t b_f_king = fil_of(b_kloc);
   k_scores += kface(w_f_king, w_r_king, b_f_king, b_r_king, ori_of(p->board[w_kloc]))
         + kaggressive(w_f_king, w_r_king, b_f_king, b_r_king);
   k_scores -= kface(b_f_king, b_r_king, w_f_king, w_r_king, ori_of(p->board[b_kloc]))
@@ -351,50 +511,30 @@ score_t eval_incremental(position_t *p, bool verbose) {
 
   ev_score_t score[2] = { 0, 0 };
 
-  // should also be able to do this for pcentral, but floating point rounding gives
-  // different result (not necessarily a worse result though)
-  int p_between[2] = {0};
-
-  for (fil_t f = 0; f < BOARD_WIDTH; f++) {
-    for (rnk_t r = 0; r < BOARD_WIDTH; r++) {
-      square_t sq = ARR_WIDTH * (FIL_ORIGIN + f) + RNK_ORIGIN + r;
-      piece_t x = p->board[sq];
-      color_t c = (color_t) ((x >> COLOR_SHIFT) & COLOR_MASK);
-
-      switch (ptype_of(x)) {
-        case EMPTY:
-          break;
-        case PAWN:
-          // PBETWEEN heuristic
-          p_between[c] += pbetween(f, r, w_f_king, w_r_king, b_f_king, b_r_king);
-          break;
-        case INVALID:
-          break;
-        default:
-          tbassert(false, "Jose says: no way!\n");   // No way, Jose!
-      }
-    }
-  }
-
+//////////////////////////////////////////////////////////////////////////////////
+  // delta scores were calculated as if white had last moved
   int delta_mult = 2*(last_moved == WHITE) - 1;
-  p->p_between = p_between[WHITE] - p_between[BLACK];
+
+  p->p_between += delta_mult * delta_pbetween;
   p->p_central += delta_mult * delta_pcentral;
   p->ev_score_valid = true;
-
-  score[WHITE] += p_between[WHITE] * PBETWEEN;
-  score[BLACK] += p_between[BLACK] * PBETWEEN;
 
   compute_all_laser_path_heuristics(p, WHITE, score, p->pawn_count_black, verbose);
   compute_all_laser_path_heuristics(p, BLACK, score, p->pawn_count_white, verbose);
 
-  // score from WHITE point of view
-
   ev_score_t tot = score[WHITE] - score[BLACK];
-  tot += p->p_central;
   tot += PAWN_EV_VALUE * (p->pawn_count_white - p->pawn_count_black);
+  tot += PBETWEEN * p->p_between;
+  tot += p->p_central;
   tot += k_scores;
 
+
+
   if (RANDOMIZE) {
+    // seed rand_r with a value of 1, as per
+    // http://linux.die.net/man/3/rand_r
+    static __thread unsigned int seed = 1;
+
     ev_score_t  z = rand_r(&seed) % (RANDOMIZE*2+1);
     tot = tot + z - RANDOMIZE;
   }
@@ -419,18 +559,24 @@ score_t eval(position_t *p, bool verbose) {
   if (ptype_mv_of(p->last_move) != INVALID && p->p_between != NO_EV_SCORE) {
     // TODO: when ev_score_valid, calculate even more quickly
     if (p->victims.zapped == 0 && !p->ev_score_valid) {
-      // incrementals++;
-      // if (incrementals % 10000 == 0) printf("incrementals %d\n", incrementals);  // 700K
-      return eval_incremental(p, verbose);
-    // } else {
-    //   if (p->ev_score_valid) {
-    //     ev_score_valids++;
-    //     if (ev_score_valids % 10000 == 0) printf("ev_score_valids %d\n", ev_score_valids);  // < 10K
-    //   }
-    //   if (p->victims.zapped != 0) {
-    //     victims_zappeds++;
-    //     if (victims_zappeds % 10000 == 0) printf("victims_zappeds %d\n", victims_zappeds); // 160K
-    //   }
+      if (ptype_mv_of(p->last_move) != KING || rot_of(p->last_move) != NONE || true) {
+        // incrementals++;
+        // if (incrementals % 10000 == 0) printf("incrementals %d\n", incrementals);  // 700K
+        return eval_incremental(p, verbose);
+      }
+    } else {
+      // if (p->ev_score_valid) {
+      //   ev_score_valids++;
+      //   if (ev_score_valids % 10000 == 0) printf("ev_score_valids %d\n", ev_score_valids);  // < 10K
+      // }
+      // if (ptype_mv_of(p->last_move) == KING) {
+      //   ev_score_valids++;
+      //   if (ev_score_valids % 10000 == 0) printf("ev_score_valids %d\n", ev_score_valids);  // < 10K
+      // }
+      // if (p->victims.zapped != 0) {
+      //   victims_zappeds++;
+      //   if (victims_zappeds % 10000 == 0) printf("victims_zappeds %d\n", victims_zappeds); // 160K
+      // }
     }
   }
   // fulls++;
