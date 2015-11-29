@@ -622,6 +622,8 @@ bool make_move(position_t *old, position_t *p, move_t mv) {
     }
   } else {  // we definitely hit something with laser
     p->victims.zapped = p->board[victim_sq];
+    p->victims.zapped_square = victim_sq;
+
     p->key ^= zob[victim_sq][p->victims.zapped];   // remove from board
     p->board[victim_sq] = 0;
     p->key ^= zob[victim_sq][0];
@@ -684,6 +686,8 @@ static uint64_t perft_search(position_t *p, int depth, int ply) {
         continue;
       }
       np.victims.zapped = np.board[victim_sq];
+      np.victims.zapped_square = victim_sq;  // just in case
+
       np.key ^= zob[victim_sq][np.victims.zapped];   // remove from board
       np.board[victim_sq] = 0;
       np.key ^= zob[victim_sq][0];

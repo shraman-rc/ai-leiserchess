@@ -287,7 +287,8 @@ score_t eval_incremental(position_t *p, bool verbose) {
   color_t to_move = color_to_move_of(p);
   color_t last_moved = opp_color(to_move);
 
-  // compute all as if the last move was made by white, then multiply by delta_mult later
+  // SOME delta scores calculated as if white had last moved
+  int delta_mult = 2*(last_moved == WHITE) - 1;
 
   // // MATERIAL
   if (p->victims.stomped != 0) {
@@ -297,9 +298,13 @@ score_t eval_incremental(position_t *p, bool verbose) {
       p->pawn_count_black--;
     }
   }
-  // if (p->victims.zapped != 0) {
-  //   delta_pawncount--;
-  // }
+  if (p->victims.zapped != 0) {
+    if (to_move == WHITE) {
+      p->pawn_count_white--;
+    } else {
+      p->pawn_count_black--;
+    }
+  }
 
   move_t last_move = p->last_move;
   square_t from_sq = from_square(last_move);
@@ -326,6 +331,8 @@ score_t eval_incremental(position_t *p, bool verbose) {
     case PAWN:
       delta_pbetween -= pbetween(fil_of(from_sq), rnk_of(from_sq), w_f_king, w_r_king, b_f_king, b_r_king);
       delta_pbetween += pbetween(fil_of(to_sq), rnk_of(to_sq), w_f_king, w_r_king, b_f_king, b_r_king);
+
+      delta_pbetween *= delta_mult;
       break;
     case KING:
       if (rot_of(last_move) !=  NONE) {
@@ -336,144 +343,78 @@ score_t eval_incremental(position_t *p, bool verbose) {
       // see if king moved closer or farther
       // king move can be diagonal...
       // pbetween for stomped pawn has already been taken care of!
-      fil_t o_f_king;
-      rnk_t o_r_king;
-      if (last_moved == WHITE) {
-        o_f_king = b_f_king;
-        o_r_king = b_r_king;
-      } else {
-        o_f_king = w_f_king;
-        o_r_king = w_r_king;
-      }
+      square_t new_kloc = p->kloc[last_moved];
+      tbassert(new_kloc == to_sq, "same\n");
+      square_t old_kloc = from_sq;
 
-      fil_t delta_f_0 = abs(fil_of(from_sq) - o_f_king);
-      fil_t delta_f_1 = abs(fil_of(to_sq) - o_f_king);
+      square_t o_kloc = p->kloc[to_move]; // opponent kloc
+
+      fil_t delta_f_0 = abs(fil_of(old_kloc) - fil_of(o_kloc));
+      fil_t delta_f_1 = abs(fil_of(new_kloc) - fil_of(o_kloc));
+
+      fil_t d_f;    // iter bounds
+      square_t d_kloc;  // iter bounds
+      color_t pos_delta;    // which color has positive delta
+
       if (delta_f_0 > delta_f_1) {
         // king moved closer to opponent
         // iterate over fil_of(from_sq) with ranks between the two kings
-
-
-        if (o_r_king >= rnk_of(to_sq)) {
-          for (rnk_t r = rnk_of(to_sq); r <= o_r_king; r++) {
-            square_t sq = square_of(fil_of(from_sq), r);
-            if (ptype_of(p->board[sq]) != PAWN) {
-              continue;
-            }
-            if (color_of(p->board[sq]) == WHITE) {
-              // white pawn no longer between the kings
-              delta_pbetween--;
-            } else {
-              delta_pbetween++;
-            }
-          }
-        } else {
-          for (rnk_t r = o_r_king; r <= rnk_of(to_sq); r++) {
-            square_t sq = square_of(fil_of(from_sq), r);
-            if (ptype_of(p->board[sq]) != PAWN) {
-              continue;
-            }
-            if (color_of(p->board[sq]) == WHITE) {
-              // white pawn no longer between the kings
-              delta_pbetween--;
-            } else {
-              delta_pbetween++;
-            }
-          }
-        }
+        d_f = fil_of(old_kloc);
+        d_kloc = old_kloc;
+        pos_delta = BLACK;
       } else if (delta_f_0 < delta_f_1) {
-        // king moved away from opponent
-        // iterate over fil_of(to_sq) with ranks between the two kings
-        if (o_r_king >= rnk_of(to_sq)) {
-          for (rnk_t r = rnk_of(to_sq); r <= o_r_king; r++) {
-            square_t sq = square_of(fil_of(to_sq), r);
-            if (ptype_of(p->board[sq]) != PAWN) {
-              continue;
-            }
-            if (color_of(p->board[sq]) == WHITE) {
-              // white pawn now between the kings
-              delta_pbetween++;
-            } else {
-              delta_pbetween--;
-            }
-          }
-        } else {
-          for (rnk_t r = o_r_king; r <= rnk_of(to_sq); r++) {
-            square_t sq = square_of(fil_of(to_sq), r);
-            if (ptype_of(p->board[sq]) != PAWN) {
-              continue;
-            }
-            if (color_of(p->board[sq]) == WHITE) {
-              // white pawn now between the kings
-              delta_pbetween++;
-            } else {
-              delta_pbetween--;
-            }
-          }
-        }
+        // moved away
+        d_f = fil_of(new_kloc);
+        d_kloc = new_kloc;
+        pos_delta = WHITE;
+      } else {
+        goto RANKS;
       }
 
+      for (rnk_t r = 0; r < BOARD_WIDTH; r++) {
+        square_t sq = square_of(d_f, r);
+        if (ptype_of(p->board[sq]) != PAWN) {
+          continue;
+        }
+        if (color_of(p->board[sq]) == pos_delta) {
+          delta_pbetween += pbetween(d_f, r, fil_of(d_kloc), rnk_of(d_kloc), fil_of(o_kloc), rnk_of(o_kloc));
+        } else {
+          delta_pbetween -= pbetween(d_f, r, fil_of(d_kloc), rnk_of(d_kloc), fil_of(o_kloc), rnk_of(o_kloc));
+        }
+      }
+RANKS:
+      pos_delta = pos_delta;
+      rnk_t delta_r_0 = abs(rnk_of(old_kloc) - rnk_of(o_kloc));
+      rnk_t delta_r_1 = abs(rnk_of(new_kloc) - rnk_of(o_kloc));
 
-      rnk_t delta_r_0 = abs(rnk_of(from_sq) - o_r_king);
-      rnk_t delta_r_1 = abs(rnk_of(to_sq) - o_r_king);
+      rnk_t d_r;    // iter bounds
+      // square_t d_kloc;  // iter bounds
+      // color_t pos_delta;    // which color has positive delta
+
       if (delta_r_0 > delta_r_1) {
         // king moved closer to opponent
         // iterate over rnk_of(from_sq) with files between the two kings
-        if (o_f_king >= fil_of(to_sq)) {
-          for (fil_t f = fil_of(to_sq); f <= o_f_king; f++) {
-            square_t sq = square_of(rnk_of(from_sq), f);
-            if (ptype_of(p->board[sq]) != PAWN) {
-              continue;
-            }
-            if (color_of(p->board[sq]) == WHITE) {
-              // white pawn no longer between the kings
-              delta_pbetween--;
-            } else {
-              delta_pbetween++;
-            }
-          }
-        } else {
-          for (fil_t f = o_f_king; f <= fil_of(to_sq); f++) {
-            square_t sq = square_of(rnk_of(from_sq), f);
-            if (ptype_of(p->board[sq]) != PAWN) {
-              continue;
-            }
-            if (color_of(p->board[sq]) == WHITE) {
-              // white pawn no longer between the kings
-              delta_pbetween--;
-            } else {
-              delta_pbetween++;
-            }
-          }
-        }
+        d_r = rnk_of(old_kloc);
+        d_kloc = old_kloc;
+        pos_delta = BLACK;
       } else if (delta_r_0 < delta_r_1) {
-        // king moved away from to opponent
-        // iterate over rnk_of(to_sq) with files between the two kings
-        if (o_f_king >= fil_of(to_sq)) {
-          for (fil_t f = fil_of(to_sq); f <= o_f_king; f++) {
-            square_t sq = square_of(rnk_of(to_sq), f);
-            if (ptype_of(p->board[sq]) != PAWN) {
-              continue;
-            }
-            if (color_of(p->board[sq]) == WHITE) {
-              // white pawn now between the kings
-              delta_pbetween++;
-            } else {
-              delta_pbetween--;
-            }
-          }
+        // moved away
+        d_r = rnk_of(new_kloc);
+        d_kloc = new_kloc;
+        pos_delta = WHITE;
+      } else {
+        break;
+      }
+
+      for (fil_t f = 0; f < BOARD_WIDTH; f++) {
+        square_t sq = square_of(f, d_r);
+        if (ptype_of(p->board[sq]) != PAWN) {
+          continue;
+        }
+        if (color_of(p->board[sq]) == pos_delta) {
+          delta_pbetween += pbetween(f, d_r, fil_of(d_kloc), rnk_of(d_kloc), fil_of(o_kloc), rnk_of(o_kloc));
         } else {
-          for (fil_t f = o_f_king; f <= fil_of(to_sq); f++) {
-            square_t sq = square_of(rnk_of(to_sq), f);
-            if (ptype_of(p->board[sq]) != PAWN) {
-              continue;
-            }
-            if (color_of(p->board[sq]) == WHITE) {
-              // white pawn now between the kings
-              delta_pbetween++;
-            } else {
-              delta_pbetween--;
-            }
-          }
+          delta_pbetween -= pbetween(f, d_r, fil_of(d_kloc), rnk_of(d_kloc), fil_of(o_kloc), rnk_of(o_kloc));
         }
       }
       break;
@@ -511,11 +452,36 @@ score_t eval_incremental(position_t *p, bool verbose) {
 
   ev_score_t score[2] = { 0, 0 };
 
-//////////////////////////////////////////////////////////////////////////////////
-  // delta scores were calculated as if white had last moved
-  int delta_mult = 2*(last_moved == WHITE) - 1;
 
-  p->p_between += delta_mult * delta_pbetween;
+/////////////////////////
+  int p_between[2] = {0};
+
+  // square_t w_kloc = p->kloc[WHITE];
+  // square_t b_kloc = p->kloc[BLACK];
+  // rnk_t w_r_king = rnk_of(w_kloc);
+  // fil_t w_f_king = fil_of(w_kloc);
+  // rnk_t b_r_king = rnk_of(b_kloc);
+  // fil_t b_f_king = fil_of(b_kloc);
+
+  for (fil_t f = 0; f < BOARD_WIDTH; f++) {
+    for (rnk_t r = 0; r < BOARD_WIDTH; r++) {
+      square_t sq = ARR_WIDTH * (FIL_ORIGIN + f) + RNK_ORIGIN + r;
+      piece_t x = p->board[sq];
+      color_t c = (color_t) ((x >> COLOR_SHIFT) & COLOR_MASK);
+      switch (ptype_of(x)) {
+        case PAWN:
+          p_between[c] += pbetween(f, r, w_f_king, w_r_king, b_f_king, b_r_king);
+          break;
+        default:
+          break;
+      }
+    }
+  }
+//////////////////////////////////////////////////////////////////////////////////
+  p->p_between += delta_pbetween;
+
+  tbassert(p->p_between == p_between[WHITE] - p_between[BLACK], "%d %d %d\n", p->p_between, p_between[WHITE], p_between[BLACK]);
+
   p->p_central += delta_mult * delta_pcentral;
   p->ev_score_valid = true;
 
