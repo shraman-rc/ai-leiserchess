@@ -281,8 +281,6 @@ void compute_all_laser_path_heuristics(position_t* p, color_t c, ev_score_t* sco
 // pcentral, pbetween, and material/pawn count heuristics
 // kface and kaggressive are done directly
 score_t eval_incremental(position_t *p, bool verbose) {
-  // TODO: store location of zapped piece so that this method can be used if a piece is zapped
-  tbassert(p->victims.zapped == 0, "no way to find location of zapped piece\n");
 
   color_t to_move = color_to_move_of(p);
   color_t last_moved = opp_color(to_move);
@@ -292,13 +290,6 @@ score_t eval_incremental(position_t *p, bool verbose) {
 
   // // MATERIAL
   if (p->victims.stomped != 0) {
-    if (to_move == WHITE) {
-      p->pawn_count_white--;
-    } else {
-      p->pawn_count_black--;
-    }
-  }
-  if (p->victims.zapped != 0) {
     if (to_move == WHITE) {
       p->pawn_count_white--;
     } else {
@@ -423,13 +414,11 @@ RANKS:
       break;
   }
 
-
   // PCENTRAL
   // subtract stomped, zapped
   // if last move was a pawn:
   //    subtract previous score, add new score
   ev_score_t delta_pcentral = 0;
-
 
   if (p->victims.stomped != 0) {
     delta_pcentral += pcentral(fil_of(to_sq), rnk_of(to_sq));
@@ -438,9 +427,6 @@ RANKS:
     delta_pcentral -= pcentral(fil_of(from_sq), rnk_of(from_sq));
     delta_pcentral += pcentral(fil_of(to_sq), rnk_of(to_sq));
   }
-  // if (p->zapped != 0) {
-  //   delta_pcentral -= ;
-  // }
 
   // KFACE
   // KAGGRESSIVE
@@ -450,41 +436,58 @@ RANKS:
   k_scores -= kface(b_f_king, b_r_king, w_f_king, w_r_king, ori_of(p->board[b_kloc]))
         + kaggressive(b_f_king, b_r_king, w_f_king, w_r_king);
 
-  ev_score_t score[2] = { 0, 0 };
 
-
-/////////////////////////
-  int p_between[2] = {0};
-
-  // square_t w_kloc = p->kloc[WHITE];
-  // square_t b_kloc = p->kloc[BLACK];
-  // rnk_t w_r_king = rnk_of(w_kloc);
-  // fil_t w_f_king = fil_of(w_kloc);
-  // rnk_t b_r_king = rnk_of(b_kloc);
-  // fil_t b_f_king = fil_of(b_kloc);
-
-  for (fil_t f = 0; f < BOARD_WIDTH; f++) {
-    for (rnk_t r = 0; r < BOARD_WIDTH; r++) {
-      square_t sq = ARR_WIDTH * (FIL_ORIGIN + f) + RNK_ORIGIN + r;
-      piece_t x = p->board[sq];
-      color_t c = (color_t) ((x >> COLOR_SHIFT) & COLOR_MASK);
-      switch (ptype_of(x)) {
-        case PAWN:
-          p_between[c] += pbetween(f, r, w_f_king, w_r_king, b_f_king, b_r_king);
-          break;
-        default:
-          break;
-      }
+/////////////////// zapping //////////////////////////////////
+  if (p->victims.zapped != 0) {
+    if (color_of(p->victims.zapped) == WHITE) {
+      p->pawn_count_white--;
+    } else {
+      p->pawn_count_black--;
     }
   }
-//////////////////////////////////////////////////////////////////////////////////
+
+  // directly modify p->p_central because delta_pcentral is multiplied by delta_mult
+  if (p->victims.zapped != 0) {
+    if (color_of(p->victims.zapped) == WHITE) {
+      p->p_central -= pcentral(fil_of(p->victims.zapped_square), rnk_of(p->victims.zapped_square));
+    } else {
+      p->p_central += pcentral(fil_of(p->victims.zapped_square), rnk_of(p->victims.zapped_square));
+    }
+  }
+
+  //
+  if (p->victims.zapped != 0) {
+    tbassert(ptype_of(p->victims.zapped) != KING, "bogus\n");
+    // white zapped black pawn
+    square_t squ = p->victims.zapped_square;
+
+    square_t old_kloc_w = p->kloc[WHITE];
+    square_t old_kloc_b = p->kloc[BLACK];
+
+    if (ptype_mv_of(last_move) == KING) {
+      if (last_moved == WHITE) {
+        old_kloc_w = from_sq;
+      } else {
+        old_kloc_b = from_sq;
+      }
+    }
+
+    if (color_of(p->victims.zapped) == WHITE) {
+      delta_pbetween -= pbetween(fil_of(squ), rnk_of(squ), fil_of(old_kloc_w), rnk_of(old_kloc_w), fil_of(old_kloc_b), rnk_of(old_kloc_b));
+    } else {
+      delta_pbetween += pbetween(fil_of(squ), rnk_of(squ), fil_of(old_kloc_w), rnk_of(old_kloc_w), fil_of(old_kloc_b), rnk_of(old_kloc_b));
+    }
+  }
+
+
+/////////////////////////////////////
+
+
   p->p_between += delta_pbetween;
-
-  tbassert(p->p_between == p_between[WHITE] - p_between[BLACK], "%d %d %d\n", p->p_between, p_between[WHITE], p_between[BLACK]);
-
   p->p_central += delta_mult * delta_pcentral;
   p->ev_score_valid = true;
 
+  ev_score_t score[2] = {0};
   compute_all_laser_path_heuristics(p, WHITE, score, p->pawn_count_black, verbose);
   compute_all_laser_path_heuristics(p, BLACK, score, p->pawn_count_white, verbose);
 
@@ -493,8 +496,6 @@ RANKS:
   tot += PBETWEEN * p->p_between;
   tot += p->p_central;
   tot += k_scores;
-
-
 
   if (RANDOMIZE) {
     // seed rand_r with a value of 1, as per
@@ -524,7 +525,8 @@ score_t eval(position_t *p, bool verbose) {
 
   if (ptype_mv_of(p->last_move) != INVALID && p->p_between != NO_EV_SCORE) {
     // TODO: when ev_score_valid, calculate even more quickly
-    if (p->victims.zapped == 0 && !p->ev_score_valid) {
+    if (!p->ev_score_valid) {
+    // if (p->victims.zapped == 0 && !p->ev_score_valid) {
       if (ptype_mv_of(p->last_move) != KING || rot_of(p->last_move) != NONE || true) {
         // incrementals++;
         // if (incrementals % 10000 == 0) printf("incrementals %d\n", incrementals);  // 700K
