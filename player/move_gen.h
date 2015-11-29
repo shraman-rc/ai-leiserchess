@@ -144,6 +144,12 @@ typedef struct position {
   move_t       last_move;        // move that led to this position
   victims_t    victims;          // pieces destroyed by shooter or stomper
   square_t     kloc[2];          // location of kings
+
+  // remember components of static evaluation score
+  // TODO: smallest types possible
+  int pawn_count;  // # white - # black
+  int p_between;  // # white - # black
+  int p_central;  // white pcentral score - black pcentral score
 } position_t;
 
 // -----------------------------------------------------------------------------

@@ -26,6 +26,14 @@ int PAWNPIN;
 // Heuristics for static evaluation - described in the google doc
 // mentioned in the handout.
 
+
+// PCENTRAL heuristic: Bonus for Pawn near center of board
+// double df = BOARD_WIDTH/2 - f - 1;
+// if (df < 0)  df = f - BOARD_WIDTH/2;
+// double dr = BOARD_WIDTH/2 - r - 1;
+// if (dr < 0) dr = r - BOARD_WIDTH/2;
+// double bonus = 1 - sqrt(df * df + dr * dr) / (BOARD_WIDTH / sqrt(2));
+// return PCENTRAL * bonus;
 static const ev_score_t pcentral_values[BOARD_WIDTH][BOARD_WIDTH] = {
   {199, 292, 367, 416, 434, 434, 416, 367, 292, 199},
   {292, 400, 490, 552, 575, 575, 552, 490, 400, 292},
@@ -39,7 +47,6 @@ static const ev_score_t pcentral_values[BOARD_WIDTH][BOARD_WIDTH] = {
   {199, 292, 367, 416, 434, 434, 416, 367, 292, 199}
 };
 
-// PCENTRAL heuristic: Bonus for Pawn near center of board
 ev_score_t pcentral(fil_t f, rnk_t r) {
   return pcentral_values[f][r];
 }
@@ -279,6 +286,7 @@ score_t eval(position_t *p, bool verbose) {
   // different result (not necessarily a worse result though)
   uint8_t pawn_counts[2] = {0};
   int p_between[2] = {0};
+  int p_central[2] = {0};
 
   square_t w_kloc = p->kloc[WHITE];
   square_t b_kloc = p->kloc[BLACK];
@@ -304,7 +312,7 @@ score_t eval(position_t *p, bool verbose) {
           p_between[c] += pbetween(f, r, w_f_king, w_r_king, b_f_king, b_r_king);
 
           // PCENTRAL heuristic
-          score[c] += pcentral(f,r);
+          p_central[c] += pcentral(f,r);
           break;
 
         case KING:
@@ -325,6 +333,14 @@ score_t eval(position_t *p, bool verbose) {
       }
     }
   }
+
+  p->pawn_count = pawn_counts[WHITE] - pawn_counts[BLACK];
+  p->p_between = p_between[WHITE] - p_between[BLACK];
+  p->p_central = p_central[WHITE] - p_central[BLACK];
+
+  score[WHITE] += p_central[WHITE];
+  score[BLACK] += p_central[BLACK];
+
 
   // MATERIAL heuristic
   score[WHITE] += pawn_counts[WHITE] * PAWN_EV_VALUE;
