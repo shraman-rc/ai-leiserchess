@@ -441,7 +441,8 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
   p->key = old->key;
   p->ply = old->ply;
   // p->victims = old->victims;
-  p->pawn_count = old->pawn_count;
+  p->pawn_count_white = old->pawn_count_white;
+  p->pawn_count_black = old->pawn_count_black;
   p->p_between = old->p_between;
   p->p_central = old->p_central;
   p->ev_score_valid = false;

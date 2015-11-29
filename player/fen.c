@@ -335,7 +335,8 @@ int fen_to_pos(position_t *p, char *fen) {
   p->history = &dmy2;  // history
 
 
-  p->pawn_count = NO_EV_SCORE;
+  p->pawn_count_white = NO_EV_SCORE;
+  p->pawn_count_black = NO_EV_SCORE;
   p->p_between = NO_EV_SCORE;
   p->p_central = NO_EV_SCORE;
   p->ev_score_valid = false;

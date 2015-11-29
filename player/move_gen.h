@@ -148,7 +148,8 @@ typedef struct position {
 
   // remember components of static evaluation score
   // TODO: smallest types possible
-  int pawn_count;  // # white - # black
+  int pawn_count_white;  //
+  int pawn_count_black;  //
   int p_between;  // # white - # black
   int p_central;  // white pcentral score - black pcentral score
   bool ev_score_valid;
