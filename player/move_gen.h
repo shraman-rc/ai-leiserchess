@@ -136,6 +136,7 @@ typedef struct victims_t {
 // position
 // -----------------------------------------------------------------------------
 
+#define NO_EV_SCORE 0x80000000  // -1
 typedef struct position {
   piece_t      board[ARR_SIZE];
   struct position  *history;     // history of position
@@ -150,6 +151,7 @@ typedef struct position {
   int pawn_count;  // # white - # black
   int p_between;  // # white - # black
   int p_central;  // white pcentral score - black pcentral score
+  bool ev_score_valid;
 } position_t;
 
 // -----------------------------------------------------------------------------

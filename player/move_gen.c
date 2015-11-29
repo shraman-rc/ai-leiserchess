@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
@@ -434,10 +435,20 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
     });
 
   // really expensive
-  *p = *old;
+  // *p = *old;
+  memcpy(p->board, old->board, ARR_SIZE*sizeof(piece_t));
+  memcpy(p->kloc, old->kloc, 2*sizeof(square_t));
+  p->key = old->key;
+  p->ply = old->ply;
+  // p->victims = old->victims;
+  p->pawn_count = old->pawn_count;
+  p->p_between = old->p_between;
+  p->p_central = old->p_central;
+  p->ev_score_valid = false;
 
   p->history = old;
   p->last_move = mv;
+
 
   tbassert(from_sq < ARR_SIZE && from_sq > 0, "from_sq: %d\n", from_sq);
   tbassert(p->board[from_sq] < (1 << PIECE_SIZE) && p->board[from_sq] >= 0,
@@ -706,7 +717,7 @@ void display(position_t *p) {
   square_to_str(p->kloc[BLACK], buf, MAX_CHARS_IN_MOVE);
   printf("info Black King: %s\n", buf);
 
-  if (p->last_move != 0) {
+  if (p->last_move != INVALID) {
     move_to_str(p->last_move, buf, MAX_CHARS_IN_MOVE);
     printf("info Last move: %s\n", buf);
   } else {
