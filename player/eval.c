@@ -406,6 +406,10 @@ score_t eval_incremental(position_t *p, bool verbose) {
   return tot / EV_SCORE_RATIO;
 }
 
+int ev_score_valids = 0;
+int incrementals = 0;
+int fulls = 0;
+int victims_zappeds = 0;
 // Static evaluation.  Returns score
 score_t eval(position_t *p, bool verbose) {
   // tbassert(((p->pawn_count != NO_EV_SCORE) == (p->p_between != NO_EV_SCORE)) &&
@@ -415,9 +419,22 @@ score_t eval(position_t *p, bool verbose) {
   if (ptype_mv_of(p->last_move) != INVALID && p->p_between != NO_EV_SCORE) {
     // TODO: when ev_score_valid, calculate even more quickly
     if (p->victims.zapped == 0 && !p->ev_score_valid) {
+      // incrementals++;
+      // if (incrementals % 10000 == 0) printf("incrementals %d\n", incrementals);  // 700K
       return eval_incremental(p, verbose);
+    // } else {
+    //   if (p->ev_score_valid) {
+    //     ev_score_valids++;
+    //     if (ev_score_valids % 10000 == 0) printf("ev_score_valids %d\n", ev_score_valids);  // < 10K
+    //   }
+    //   if (p->victims.zapped != 0) {
+    //     victims_zappeds++;
+    //     if (victims_zappeds % 10000 == 0) printf("victims_zappeds %d\n", victims_zappeds); // 160K
+    //   }
     }
   }
+  // fulls++;
+  // if (fulls % 10000 == 0) printf("fulls %d\n", fulls);  // 160K
 
   // seed rand_r with a value of 1, as per
   // http://linux.die.net/man/3/rand_r
