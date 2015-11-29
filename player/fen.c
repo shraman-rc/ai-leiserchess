@@ -333,12 +333,6 @@ int fen_to_pos(position_t *p, char *fen) {
   p->victims.stomped = 0;       // piece destroyed by stomper
   p->victims.zapped = 0;       // piece destroyed by shooter
   p->history = &dmy2;  // history
-
-
-  p->pawn_count_white = NO_EV_SCORE;
-  p->pawn_count_black = NO_EV_SCORE;
-  p->p_between = NO_EV_SCORE;
-  p->p_central = NO_EV_SCORE;
   p->ev_score_valid = false;
 
   if (fen[0] == '\0') {  // Empty FEN => use starting position

@@ -137,7 +137,7 @@ typedef struct victims_t {
 // position
 // -----------------------------------------------------------------------------
 
-#define NO_EV_SCORE 0x80000000  // -1
+#define NO_EV_SCORE -128
 typedef struct position {
   piece_t      board[ARR_SIZE];
   struct position  *history;     // history of position
@@ -147,13 +147,12 @@ typedef struct position {
   victims_t    victims;          // pieces destroyed by shooter or stomper
   square_t     kloc[2];          // location of kings
 
-  // remember components of static evaluation score
-  // TODO: smallest types possible
-  int pawn_count_white;  //
-  int pawn_count_black;  //
-  int p_between;  // # white - # black
-  int p_central;  // white pcentral score - black pcentral score
-  bool ev_score_valid;
+  // remember components of static evaluation score for use by eval_incremental
+  int8_t pawn_count; // # white - # black
+  int8_t p_between;  // # white - # black
+  int16_t p_central;  // white pcentral score - black pcentral score. up to 7,000
+  bool ev_score_valid;          // whether the stored ev_scores mean anything, false at beginning
+  bool ev_score_needs_update;
 } position_t;
 
 // -----------------------------------------------------------------------------

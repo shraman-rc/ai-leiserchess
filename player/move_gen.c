@@ -440,12 +440,12 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
   memcpy(p->kloc, old->kloc, 2*sizeof(square_t));
   p->key = old->key;
   p->ply = old->ply;
-  // p->victims = old->victims;
-  p->pawn_count_white = old->pawn_count_white;
-  p->pawn_count_black = old->pawn_count_black;
+  // don't need to copy victims as they will be set shortly
+  p->pawn_count = old->pawn_count;
   p->p_between = old->p_between;
   p->p_central = old->p_central;
-  p->ev_score_valid = false;
+  p->ev_score_valid = old->ev_score_valid;
+  p->ev_score_needs_update = true;
 
   p->history = old;
   p->last_move = mv;
