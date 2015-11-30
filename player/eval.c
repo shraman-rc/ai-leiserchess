@@ -70,9 +70,9 @@ int pbetween(fil_t f, rnk_t r, fil_t w_f, rnk_t w_r, fil_t b_f, rnk_t b_r) {
 }
 
 // KFACE heuristic: bonus (or penalty) for King facing toward the other King
-ev_score_t kface(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r, int ori) {
-  int delta_fil = o_f - f;
-  int delta_rnk = o_r - r;
+ev_score_t kface(int delta_fil, int delta_rnk, int ori) {
+  //int delta_fil = o_f - f;
+  //int delta_rnk = o_r - r;
   int bonus;
 
   switch (ori) {
@@ -101,9 +101,9 @@ ev_score_t kface(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r, int ori) {
 }
 
 // KAGGRESSIVE heuristic: bonus for King with more space to back
-ev_score_t kaggressive(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r) {
-  int delta_fil = o_f - f;
-  int delta_rnk = o_r - r;
+ev_score_t kaggressive(int delta_fil, int delta_rnk, fil_t f, rnk_t r) {
+  //int delta_fil = o_f - f;
+  //int delta_rnk = o_r - r;
 
   int bonus = 0;
 
@@ -479,10 +479,12 @@ score_t compute_eval_score(position_t *p) {
   fil_t w_f_king = fil_of(w_kloc);
   rnk_t b_r_king = rnk_of(b_kloc);
   fil_t b_f_king = fil_of(b_kloc);
-  score += kface(w_f_king, w_r_king, b_f_king, b_r_king, ori_of(p->board[w_kloc]));
-  score += kaggressive(w_f_king, w_r_king, b_f_king, b_r_king);
-  score -= kface(b_f_king, b_r_king, w_f_king, w_r_king, ori_of(p->board[b_kloc]));
-  score -= kaggressive(b_f_king, b_r_king, w_f_king, w_r_king);
+  int delta_fil_w = b_f_king - w_f_king;
+  int delta_rnk_w = b_r_king - w_r_king;
+  score += kface(delta_fil_w, delta_rnk_w, ori_of(p->board[w_kloc]));
+  score += kaggressive(delta_fil_w, delta_rnk_w, w_f_king, w_r_king);
+  score -= kface(-delta_fil_w, -delta_rnk_w, ori_of(p->board[b_kloc]));
+  score -= kaggressive(-delta_fil_w, -delta_rnk_w, b_f_king, b_r_king);
 
   if (RANDOMIZE) {
     // not sure if seeding has to be done earlier?
