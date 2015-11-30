@@ -182,10 +182,10 @@ int square_to_str(square_t sq, char *buf, size_t bufsize) {
 // direction map
 static const int dir[8] = { -ARR_WIDTH - 1, -ARR_WIDTH, -ARR_WIDTH + 1, -1, 1,
                       ARR_WIDTH - 1, ARR_WIDTH, ARR_WIDTH + 1 };
-int dir_of(int i) {
+/*int dir_of(int i) {
   tbassert(i >= 0 && i < 8, "i: %d\n", i);
   return dir[i];
-}
+}*/
 
 
 // directions for laser: NN, EE, SS, WW
@@ -238,7 +238,6 @@ move_t move_of(ptype_t typ, rot_t rot, square_t from_sq, square_t to_sq) {
       ((from_sq & FROM_MASK) << FROM_SHIFT) |
       ((to_sq & TO_MASK) << TO_SHIFT);
 }
-
 
 // converts a move to string notation for FEN
 void move_to_str(move_t mv, char *buf, size_t bufsize) {
@@ -301,7 +300,7 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
         case PAWN:
           if (laser_map[sq]) continue;  // Piece is pinned down by laser.
           for (int d = 0; d < 8; d++) {
-            int dest = sq + dir_of(d);
+            int dest = sq + dir[d];
             // Skip moves into invalid squares, squares occupied by
             // kings, nonempty squares if x is a king, and squares with
             // pawns of matching color
@@ -325,7 +324,7 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
         case KING:
           // directions
           for (int d = 0; d < 8; d++) {
-            int dest = sq + dir_of(d);
+            int dest = sq + dir[d];
             // Skip moves into invalid squares, squares occupied by
             // kings, nonempty squares if x is a king, and squares with
             // pawns of matching color
