@@ -361,6 +361,8 @@ void update_eval_score(position_t *p) {
         if (ptype_of(p->board[sq]) != PAWN) {
           continue;
         }
+        // TODO: set iter bounds above and get rid of pbetween
+        // TODO: compute fil_of and rnk_of once
         if (color_of(p->board[sq]) == pos_delta) {
           delta_pbetween += pbetween(d_f, r, fil_of(d_kloc), rnk_of(d_kloc), fil_of(o_kloc), rnk_of(o_kloc));
         } else {
@@ -473,11 +475,14 @@ score_t compute_eval_score(position_t *p) {
   // KFACE, KAGGRESSIVE
   square_t w_kloc = p->kloc[WHITE];
   square_t b_kloc = p->kloc[BLACK];
-  // TODO: precompute all in one place and pass around? probably negligible
-  score += kface(fil_of(w_kloc), rnk_of(w_kloc), fil_of(b_kloc), rnk_of(b_kloc), ori_of(p->board[w_kloc]));
-  score += kaggressive(fil_of(w_kloc), rnk_of(w_kloc), fil_of(b_kloc), rnk_of(b_kloc));
-  score -= kface(fil_of(b_kloc), rnk_of(b_kloc), fil_of(w_kloc), rnk_of(w_kloc), ori_of(p->board[b_kloc]));
-  score -= kaggressive(fil_of(b_kloc), rnk_of(b_kloc), fil_of(w_kloc), rnk_of(w_kloc));
+  rnk_t w_r_king = rnk_of(w_kloc);
+  fil_t w_f_king = fil_of(w_kloc);
+  rnk_t b_r_king = rnk_of(b_kloc);
+  fil_t b_f_king = fil_of(b_kloc);
+  score += kface(w_f_king, w_r_king, b_f_king, b_r_king, ori_of(p->board[w_kloc]));
+  score += kaggressive(w_f_king, w_r_king, b_f_king, b_r_king);
+  score -= kface(b_f_king, b_r_king, w_f_king, w_r_king, ori_of(p->board[b_kloc]));
+  score -= kaggressive(b_f_king, b_r_king, w_f_king, w_r_king);
 
   if (RANDOMIZE) {
     // not sure if seeding has to be done earlier?
@@ -504,6 +509,8 @@ score_t eval(position_t *p, bool verbose) {
     }
     return compute_eval_score(p);
   }
+
+  // compute all from scratch
 
   uint8_t pawn_counts[2] = {0};
   uint8_t p_between[2] = {0};

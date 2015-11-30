@@ -120,7 +120,6 @@ typedef enum {
 } rot_t;
 
 // A single move can stomp one piece and zap another.
-// TODO: trim this down (don't actually need anything except bool for stomped and square for zapped)
 typedef struct victims_t {
   piece_t stomped;
   piece_t zapped;
@@ -148,12 +147,12 @@ typedef struct position {
   victims_t    victims;          // pieces destroyed by shooter or stomper
   square_t     kloc[2];          // location of kings
 
-  // remember components of static evaluation score for use by eval_incremental
-  int8_t pawn_count; // # white - # black
-  int8_t p_between;  // # white - # black
-  int16_t p_central;  // white pcentral score - black pcentral score. up to 7,000
-  bool ev_score_valid;          // whether the stored ev_scores mean anything, false at beginning
-  bool ev_score_needs_update;
+  // remember components of static evaluation score to avoid recomputing on each move
+  int8_t pawn_count;           // # white - #   (does NOT include PAWN_EV_VALUE factor)
+  int8_t p_between;            // # white - # black  (does NOT include PBETWEEN factor)
+  int16_t p_central;           // white score - black score. up to 7000. (includes PCENTRAL.)
+  bool ev_score_valid;         // only false at beginning
+  bool ev_score_needs_update;  // set to true when position changes
 } position_t;
 
 // -----------------------------------------------------------------------------

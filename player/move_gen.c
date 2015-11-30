@@ -445,8 +445,8 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
   p->p_between = old->p_between;
   p->p_central = old->p_central;
   p->ev_score_valid = old->ev_score_valid;
-  p->ev_score_needs_update = true;
 
+  p->ev_score_needs_update = true;
   p->history = old;
   p->last_move = mv;
 
