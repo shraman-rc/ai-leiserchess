@@ -367,6 +367,7 @@ void update_eval_score(position_t *p) {
           delta_pbetween -= pbetween(d_f, r, fil_of(d_kloc), rnk_of(d_kloc), fil_of(o_kloc), rnk_of(o_kloc));
         }
       }
+
 RANKS:
       pos_delta = pos_delta;
       rnk_t delta_r_0 = abs(rnk_of(old_kloc) - rnk_of(o_kloc));
@@ -422,27 +423,8 @@ RANKS:
     delta_pcentral += pcentral(fil_of(to_sq), rnk_of(to_sq));
   }
 
-/////////////////// zapping //////////////////////////////////
+/////////////////// zapping ///////////////////////
   if (p->victims.zapped != 0) {
-    if (color_of(p->victims.zapped) == WHITE) {
-      p->pawn_count--;
-    } else {
-      p->pawn_count++;
-    }
-  }
-
-  // directly modify p->p_central because delta_pcentral is multiplied by delta_mult
-  if (p->victims.zapped != 0) {
-    if (color_of(p->victims.zapped) == WHITE) {
-      p->p_central -= pcentral(fil_of(p->victims.zapped_square), rnk_of(p->victims.zapped_square));
-    } else {
-      p->p_central += pcentral(fil_of(p->victims.zapped_square), rnk_of(p->victims.zapped_square));
-    }
-  }
-
-  //
-  if (p->victims.zapped != 0) {
-    tbassert(ptype_of(p->victims.zapped) != KING, "bogus\n");
     // white zapped black pawn
     square_t squ = p->victims.zapped_square;
 
@@ -458,8 +440,13 @@ RANKS:
     }
 
     if (color_of(p->victims.zapped) == WHITE) {
+      p->pawn_count--;
+      // directly modify p->p_central because delta_pcentral is multiplied by delta_mult
+      p->p_central -= pcentral(fil_of(p->victims.zapped_square), rnk_of(p->victims.zapped_square));
       delta_pbetween -= pbetween(fil_of(squ), rnk_of(squ), fil_of(old_kloc_w), rnk_of(old_kloc_w), fil_of(old_kloc_b), rnk_of(old_kloc_b));
     } else {
+      p->pawn_count++;
+      p->p_central += pcentral(fil_of(p->victims.zapped_square), rnk_of(p->victims.zapped_square));
       delta_pbetween += pbetween(fil_of(squ), rnk_of(squ), fil_of(old_kloc_w), rnk_of(old_kloc_w), fil_of(old_kloc_b), rnk_of(old_kloc_b));
     }
   }
@@ -511,7 +498,6 @@ score_t compute_eval_score(position_t *p) {
 
 // Static evaluation.  Returns score
 score_t eval(position_t *p, bool verbose) {
-  // TODO: when ev_score_valid, calculate even more quickly
   if (p->ev_score_valid) {
     if (p->ev_score_needs_update) {
       update_eval_score(p);
@@ -519,8 +505,6 @@ score_t eval(position_t *p, bool verbose) {
     return compute_eval_score(p);
   }
 
-  // should also be able to do this for pcentral, but floating point rounding gives
-  // different result (not necessarily a worse result though)
   uint8_t pawn_counts[2] = {0};
   uint8_t p_between[2] = {0};
   uint16_t p_central[2] = {0};

@@ -120,6 +120,7 @@ typedef enum {
 } rot_t;
 
 // A single move can stomp one piece and zap another.
+// TODO: trim this down (don't actually need anything except bool for stomped and square for zapped)
 typedef struct victims_t {
   piece_t stomped;
   piece_t zapped;
