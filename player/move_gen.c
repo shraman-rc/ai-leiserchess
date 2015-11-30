@@ -68,12 +68,15 @@ color_t color_of(piece_t x) {
 }
 
 color_t opp_color(color_t c) {
-  if (c == WHITE) {
-    return BLACK;
-  } else {
-    return WHITE;
-  }
+  return c == WHITE;
 }
+//color_t opp_color(color_t c) {
+//  if (c == WHITE) {
+//    return BLACK;
+//  } else {
+//    return WHITE;
+//  }
+//}
 
 void set_color(piece_t *x, color_t c) {
   tbassert((c >= 0) & (c <= COLOR_MASK), "color: %d\n", c);
@@ -274,6 +277,7 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
                  bool strict) {
   color_t color_to_move = color_to_move_of(p);
   // Make sure that the enemy_laser map is marked
+
   bool laser_map[ARR_SIZE] = {false};
   mark_laser_path_pinned_pawns(p, laser_map, opp_color(color_to_move));
 
@@ -291,7 +295,6 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
       }
 
       ptype_t typ = ptype_of(x);
-
       switch (typ) {
         case EMPTY:
           break;
@@ -310,19 +313,7 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
                  color == color_of(dest_piece))) {
               continue;    // illegal square
             }
-
-            WHEN_DEBUG_VERBOSE(char buf[MAX_CHARS_IN_MOVE]);
-            WHEN_DEBUG_VERBOSE({
-                move_to_str(move_of(typ, (rot_t) 0, sq, dest), buf, MAX_CHARS_IN_MOVE);
-                DEBUG_LOG(1, "Before: %s ", buf);
-              });
-            tbassert(move_count < MAX_NUM_MOVES, "move_count: %d\n", move_count);
             sortable_move_list[move_count++] = move_of(typ, (rot_t) 0, sq, dest);
-
-            WHEN_DEBUG_VERBOSE({
-                move_to_str(get_move(sortable_move_list[move_count-1]), buf, MAX_CHARS_IN_MOVE);
-                DEBUG_LOG(1, "After: %s\n", buf);
-              });
           }
 
           // rotations - three directions possible
@@ -372,16 +363,6 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
     }
   }
 
-  WHEN_DEBUG_VERBOSE({
-      DEBUG_LOG(1, "\nGenerated moves: ");
-      for (int i = 0; i < move_count; ++i) {
-        char buf[MAX_CHARS_IN_MOVE];
-        move_to_str(get_move(sortable_move_list[i]), buf, MAX_CHARS_IN_MOVE);
-        DEBUG_LOG(1, "%s ", buf);
-      }
-      DEBUG_LOG(1, "\n");
-    });
-
   return move_count;
 }
 
@@ -389,50 +370,9 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
   tbassert(mv != 0, "mv was zero.\n");
 
   square_t stomped_dst_sq = 0;
-
-  WHEN_DEBUG_VERBOSE(char buf[MAX_CHARS_IN_MOVE]);
-  WHEN_DEBUG_VERBOSE({
-      move_to_str(mv, buf, MAX_CHARS_IN_MOVE);
-      DEBUG_LOG(1, "low_level_make_move: %s\n", buf);
-    });
-
-  tbassert(old->key == compute_zob_key(old),
-           "old->key: %"PRIu64", zob-key: %"PRIu64"\n",
-           old->key, compute_zob_key(old));
-
-  WHEN_DEBUG_VERBOSE({
-      fprintf(stderr, "Before:\n");
-      display(old);
-    });
-
   square_t from_sq = from_square(mv);
   square_t to_sq = to_square(mv);
   rot_t rot = rot_of(mv);
-
-  WHEN_DEBUG_VERBOSE({
-      DEBUG_LOG(1, "low_level_make_move 2:\n");
-      square_to_str(from_sq, buf, MAX_CHARS_IN_MOVE);
-      DEBUG_LOG(1, "from_sq: %s\n", buf);
-      square_to_str(to_sq, buf, MAX_CHARS_IN_MOVE);
-      DEBUG_LOG(1, "to_sq: %s\n", buf);
-      switch (rot) {
-        case NONE:
-          DEBUG_LOG(1, "rot: none\n");
-          break;
-        case RIGHT:
-          DEBUG_LOG(1, "rot: R\n");
-          break;
-        case UTURN:
-          DEBUG_LOG(1, "rot: U\n");
-          break;
-        case LEFT:
-          DEBUG_LOG(1, "rot: L\n");
-          break;
-        default:
-          tbassert(false, "Not like a boss at all.\n");  // Bad, bad, bad
-          break;
-      }
-    });
 
   // really expensive
   // *p = *old;
@@ -449,7 +389,7 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
   p->ev_score_needs_update = true;
   p->history = old;
   p->last_move = mv;
-
+  p->key ^= zob_color;   // swap color to move
 
   tbassert(from_sq < ARR_SIZE && from_sq > 0, "from_sq: %d\n", from_sq);
   tbassert(p->board[from_sq] < (1 << PIECE_SIZE) && p->board[from_sq] >= 0,
@@ -458,21 +398,19 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
   tbassert(p->board[to_sq] < (1 << PIECE_SIZE) && p->board[to_sq] >= 0,
            "p->board[to_sq]: %d\n", p->board[to_sq]);
 
-  p->key ^= zob_color;   // swap color to move
-
   piece_t from_piece = p->board[from_sq];
   piece_t to_piece = p->board[to_sq];
 
   // Pieces block each other, unless a pawn is stomping an enemy pawn
-  tbassert(EMPTY == ptype_of(to_piece) ||
-           from_sq == to_sq ||
-           (PAWN == ptype_of(from_piece) &&
-            PAWN == ptype_of(to_piece) &&
-            color_of(to_piece) == opp_color(color_of(from_piece))),
-           "from-type: %d, to-type: %d, from-sq: %d, to-sq: %d, from-color: %d, to-color: %d\n",
-           ptype_of(from_piece), ptype_of(to_piece),
-           from_sq, to_sq,
-           color_of(from_piece), color_of(to_piece));
+//  tbassert(EMPTY == ptype_of(to_piece) ||
+//           from_sq == to_sq ||
+//           (PAWN == ptype_of(from_piece) &&
+//            PAWN == ptype_of(to_piece) &&
+//            color_of(to_piece) == opp_color(color_of(from_piece))),
+//           "from-type: %d, to-type: %d, from-sq: %d, to-sq: %d, from-color: %d, to-color: %d\n",
+//           ptype_of(from_piece), ptype_of(to_piece),
+//           from_sq, to_sq,
+//           color_of(from_piece), color_of(to_piece));
 
   if (to_sq != from_sq) {  // move, not rotation
     if (PAWN == ptype_of(from_piece) &&
@@ -516,11 +454,6 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
   tbassert(p->key == compute_zob_key(p),
            "p->key: %"PRIu64", zob-key: %"PRIu64"\n",
            p->key, compute_zob_key(p));
-
-  WHEN_DEBUG_VERBOSE({
-      fprintf(stderr, "After:\n");
-      display(p);
-    });
 
   return stomped_dst_sq;
 }
