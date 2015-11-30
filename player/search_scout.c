@@ -92,7 +92,8 @@ static score_t scout_search(searchNode *node, int depth,
   init_simple_mutex(&node_mutex);
 
   // Sort the move list.
-  sort_incremental(move_list, num_of_moves);
+  // Sort procesure moved to get_sortable_move_list.
+  // sort_incremental(move_list, num_of_moves);
 
 #if PARALLEL
   cilk_for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {

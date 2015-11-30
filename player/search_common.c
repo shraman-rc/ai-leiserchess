@@ -362,7 +362,7 @@ void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
 }
 
 // Incremental sort of the move list.
-void sort_incremental(sortable_move_t *move_list, int num_of_moves) {
+/*void sort_incremental(sortable_move_t *move_list, int num_of_moves) {
   for (int j = 0; j < num_of_moves; j++) {
     sortable_move_t insert = move_list[j];
     int hole = j;
@@ -372,7 +372,7 @@ void sort_incremental(sortable_move_t *move_list, int num_of_moves) {
     }
     move_list[hole] = insert;
   }
-}
+}*/
 
 // Returns true if a cutoff was triggered, false otherwise.
 bool search_process_score(searchNode *node, move_t mv, int mv_index,
@@ -425,15 +425,19 @@ static int get_sortable_move_list(searchNode *node, sortable_move_t * move_list,
   move_t killer_a = killer[KMT(node->ply, 0)];
   move_t killer_b = killer[KMT(node->ply, 1)];
 
-  // sort special moves to the front
+  int count = 0;
+
   for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
     move_t mv = move_list[mv_index];   // don't use get_move. assumes generate_all doesn't bungle up high bits
     if (mv == hash_table_move) {
       set_sort_key(&move_list[mv_index], SORT_MASK);
+      count++;
     } else if (mv == killer_a) {
       set_sort_key(&move_list[mv_index], SORT_MASK - 1);
+      count++;
     } else if (mv == killer_b) {
       set_sort_key(&move_list[mv_index], SORT_MASK - 2);
+      count++;
     } else {
       ptype_t  pce = ptype_mv_of(mv);
       rot_t    ro  = rot_of(mv);   // rotation
@@ -444,6 +448,13 @@ static int get_sortable_move_list(searchNode *node, sortable_move_t * move_list,
       set_sort_key(&move_list[mv_index],
                    best_move_history[BMH(fake_color_to_move, pce, ts, ot)]);
     }
+    sortable_move_t insert = move_list[mv_index];
+    int hole = mv_index;
+    while (hole > 0 && insert > move_list[hole-1]) {
+      move_list[hole] = move_list[hole-1];
+      hole--;
+    }
+    move_list[hole] = insert;
   }
   return num_of_moves;
 }

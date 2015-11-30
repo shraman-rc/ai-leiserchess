@@ -333,18 +333,8 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
               continue;    // illegal square
             }
 
-            WHEN_DEBUG_VERBOSE(char buf[MAX_CHARS_IN_MOVE]);
-            WHEN_DEBUG_VERBOSE({
-                move_to_str(move_of(typ, (rot_t) 0, sq, dest), buf, MAX_CHARS_IN_MOVE);
-                DEBUG_LOG(1, "Before: %s ", buf);
-              });
             tbassert(move_count < MAX_NUM_MOVES, "move_count: %d\n", move_count);
             sortable_move_list[move_count++] = move_of(typ, (rot_t) 0, sq, dest);
-
-            WHEN_DEBUG_VERBOSE({
-                move_to_str(get_move(sortable_move_list[move_count-1]), buf, MAX_CHARS_IN_MOVE);
-                DEBUG_LOG(1, "After: %s\n", buf);
-              });
           }
 
           // rotations - three directions possible
