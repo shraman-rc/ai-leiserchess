@@ -232,11 +232,15 @@ rot_t rot_of(move_t mv) {
   return (rot_t) ((mv >> ROT_SHIFT) & ROT_MASK);
 }
 
-move_t move_of(ptype_t typ, rot_t rot, square_t from_sq, square_t to_sq) {
+/*move_t move_of(ptype_t typ, rot_t rot, square_t from_sq, square_t to_sq) {
   return ((typ & PTYPE_MV_MASK) << PTYPE_MV_SHIFT) |
       ((rot & ROT_MASK) << ROT_SHIFT) |
       ((from_sq & FROM_MASK) << FROM_SHIFT) |
       ((to_sq & TO_MASK) << TO_SHIFT);
+}*/
+
+move_t move_of(ptype_t typ, rot_t rot, square_t from_sq, square_t to_sq) {
+  return (((((((typ & PTYPE_MV_MASK) << 2) | (rot & ROT_MASK)) << 8) | (from_sq & FROM_MASK)) << 8) | (to_sq & TO_MASK));
 }
 
 // converts a move to string notation for FEN
@@ -466,7 +470,8 @@ square_t fire(position_t *p) {
       case EMPTY:  // empty square
         break;
       case PAWN:  // Pawn
-        bdir = reflect_of(bdir, ori_of(p->board[sq]));
+        // bdir = reflect_of(bdir, ori_of(p->board[sq]));
+        bdir = reflect[bdir][ori_of(p->board[sq])];
         if (bdir < 0) {  // Hit back of Pawn
           return sq;
         }
