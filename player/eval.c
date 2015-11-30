@@ -61,9 +61,9 @@ int pbetween(fil_t f, rnk_t r, fil_t w_f, rnk_t w_r, fil_t b_f, rnk_t b_r) {
 }
 
 // KFACE heuristic: bonus (or penalty) for King facing toward the other King
-ev_score_t kface(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r, int ori) {
-  int delta_fil = o_f - f;
-  int delta_rnk = o_r - r;
+ev_score_t kface(int delta_fil, int delta_rnk, int ori) {
+//  int delta_fil = o_f - f;
+//  int delta_rnk = o_r - r;
   int bonus;
 
   switch (ori) {
@@ -92,9 +92,9 @@ ev_score_t kface(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r, int ori) {
 }
 
 // KAGGRESSIVE heuristic: bonus for King with more space to back
-ev_score_t kaggressive(fil_t f, rnk_t r, fil_t o_f, rnk_t o_r) {
-  int delta_fil = o_f - f;
-  int delta_rnk = o_r - r;
+ev_score_t kaggressive(int delta_fil, int delta_rnk, fil_t f, rnk_t r) {
+//  int delta_fil = o_f - f;
+//  int delta_rnk = o_r - r;
 
   int bonus = 0;
 
@@ -287,6 +287,8 @@ score_t eval(position_t *p, bool verbose) {
   rnk_t b_r_king = rnk_of(b_kloc);
   fil_t b_f_king = fil_of(b_kloc);
 
+  int delta_fil, delta_rnk;
+
   for (fil_t f = 0; f < BOARD_WIDTH; f++) {
     for (rnk_t r = 0; r < BOARD_WIDTH; r++) {
       square_t sq = ARR_WIDTH * (FIL_ORIGIN + f) + RNK_ORIGIN + r;
@@ -311,11 +313,15 @@ score_t eval(position_t *p, bool verbose) {
           // KFACE heuristic
           // KAGGRESSIVE heuristic
           if (c == WHITE) {
-            score[c] += kface(w_f_king, w_r_king, b_f_king, b_r_king, ori_of(x))
-             + kaggressive(w_f_king, w_r_king, b_f_king, b_r_king);
+            delta_fil = b_f_king - w_f_king;
+            delta_rnk = b_r_king - w_r_king;
+            score[c] += kface(delta_fil, delta_rnk, ori_of(x))
+             + kaggressive(delta_fil, delta_rnk, w_f_king, w_r_king);
           } else {
-            score[c] += kface(b_f_king, b_r_king, w_f_king, w_r_king, ori_of(x))
-              + kaggressive(b_f_king, b_r_king, w_f_king, w_r_king);
+            delta_fil = w_f_king - b_f_king;
+            delta_rnk = w_r_king - b_r_king;
+            score[c] += kface(delta_fil, delta_rnk, ori_of(x))
+             + kaggressive(delta_fil, delta_rnk, b_f_king, b_r_king);
           }
           break;
         case INVALID:
