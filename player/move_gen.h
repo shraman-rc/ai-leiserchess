@@ -123,6 +123,7 @@ typedef enum {
 typedef struct victims_t {
   piece_t stomped;
   piece_t zapped;
+  square_t zapped_square;
 } victims_t;
 
 // returned by make move in illegal situation
@@ -136,6 +137,7 @@ typedef struct victims_t {
 // position
 // -----------------------------------------------------------------------------
 
+#define NO_EV_SCORE -128
 typedef struct position {
   piece_t      board[ARR_SIZE];
   struct position  *history;     // history of position
@@ -144,6 +146,13 @@ typedef struct position {
   move_t       last_move;        // move that led to this position
   victims_t    victims;          // pieces destroyed by shooter or stomper
   square_t     kloc[2];          // location of kings
+
+  // remember components of static evaluation score to avoid recomputing on each move
+  int8_t pawn_count;           // # white - #   (does NOT include PAWN_EV_VALUE factor)
+  int8_t p_between;            // # white - # black  (does NOT include PBETWEEN factor)
+  int16_t p_central;           // white score - black score. up to 7000. (includes PCENTRAL.)
+  bool ev_score_valid;         // only false at beginning
+  bool ev_score_needs_update;  // set to true when position changes
 } position_t;
 
 // -----------------------------------------------------------------------------

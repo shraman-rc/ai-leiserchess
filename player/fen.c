@@ -333,7 +333,7 @@ int fen_to_pos(position_t *p, char *fen) {
   p->victims.stomped = 0;       // piece destroyed by stomper
   p->victims.zapped = 0;       // piece destroyed by shooter
   p->history = &dmy2;  // history
-
+  p->ev_score_valid = false;
 
   if (fen[0] == '\0') {  // Empty FEN => use starting position
     fen = "ss3nw5/3nw2nw3/2nw7/1nw6SE1/nw9/9SE/1nw6SE1/7SE2/3SE2SE3/5SE3NN W";
@@ -418,7 +418,7 @@ int fen_to_pos(position_t *p, char *fen) {
     return 1;
   }
   if (lm_from_sq == 0) {   // from-square of last move
-    p->last_move = 0;  // no last move specified
+    p->last_move = INVALID;  // no last move specified
     p->key = compute_zob_key(p);
     return 0;
   }

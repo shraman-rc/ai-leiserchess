@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
@@ -374,19 +375,28 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
   rot_t rot = rot_of(mv);
 
   // really expensive
-  *p = *old;
+  // *p = *old;
+  memcpy(p->board, old->board, ARR_SIZE*sizeof(piece_t));
+  memcpy(p->kloc, old->kloc, 2*sizeof(square_t));
+  p->key = old->key;
+  p->ply = old->ply;
+  // don't need to copy victims as they will be set shortly
+  p->pawn_count = old->pawn_count;
+  p->p_between = old->p_between;
+  p->p_central = old->p_central;
+  p->ev_score_valid = old->ev_score_valid;
 
+  p->ev_score_needs_update = true;
   p->history = old;
   p->last_move = mv;
   p->key ^= zob_color;   // swap color to move
 
-//  tbassert(from_sq < ARR_SIZE && from_sq > 0, "from_sq: %d\n", from_sq);
-//  tbassert(p->board[from_sq] < (1 << PIECE_SIZE) && p->board[from_sq] >= 0,
-//           "p->board[from_sq]: %d\n", p->board[from_sq]);
-//  tbassert(to_sq < ARR_SIZE && to_sq > 0, "to_sq: %d\n", to_sq);
-//  tbassert(p->board[to_sq] < (1 << PIECE_SIZE) && p->board[to_sq] >= 0,
-//           "p->board[to_sq]: %d\n", p->board[to_sq]);
-
+  tbassert(from_sq < ARR_SIZE && from_sq > 0, "from_sq: %d\n", from_sq);
+  tbassert(p->board[from_sq] < (1 << PIECE_SIZE) && p->board[from_sq] >= 0,
+           "p->board[from_sq]: %d\n", p->board[from_sq]);
+  tbassert(to_sq < ARR_SIZE && to_sq > 0, "to_sq: %d\n", to_sq);
+  tbassert(p->board[to_sq] < (1 << PIECE_SIZE) && p->board[to_sq] >= 0,
+           "p->board[to_sq]: %d\n", p->board[to_sq]);
 
   piece_t from_piece = p->board[from_sq];
   piece_t to_piece = p->board[to_sq];
@@ -545,6 +555,8 @@ bool make_move(position_t *old, position_t *p, move_t mv) {
     }
   } else {  // we definitely hit something with laser
     p->victims.zapped = p->board[victim_sq];
+    p->victims.zapped_square = victim_sq;
+
     p->key ^= zob[victim_sq][p->victims.zapped];   // remove from board
     p->board[victim_sq] = 0;
     p->key ^= zob[victim_sq][0];
@@ -607,6 +619,8 @@ static uint64_t perft_search(position_t *p, int depth, int ply) {
         continue;
       }
       np.victims.zapped = np.board[victim_sq];
+      np.victims.zapped_square = victim_sq;  // just in case
+
       np.key ^= zob[victim_sq][np.victims.zapped];   // remove from board
       np.board[victim_sq] = 0;
       np.key ^= zob[victim_sq][0];
@@ -641,7 +655,7 @@ void display(position_t *p) {
   square_to_str(p->kloc[BLACK], buf, MAX_CHARS_IN_MOVE);
   printf("info Black King: %s\n", buf);
 
-  if (p->last_move != 0) {
+  if (p->last_move != INVALID) {
     move_to_str(p->last_move, buf, MAX_CHARS_IN_MOVE);
     printf("info Last move: %s\n", buf);
   } else {
