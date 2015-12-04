@@ -425,19 +425,14 @@ static int get_sortable_move_list(searchNode *node, sortable_move_t * move_list,
   move_t killer_a = killer[KMT(node->ply, 0)];
   move_t killer_b = killer[KMT(node->ply, 1)];
 
-  int count = 0;
-
   for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
     move_t mv = move_list[mv_index];   // don't use get_move. assumes generate_all doesn't bungle up high bits
     if (mv == hash_table_move) {
       set_sort_key(&move_list[mv_index], SORT_MASK);
-      count++;
     } else if (mv == killer_a) {
       set_sort_key(&move_list[mv_index], SORT_MASK - 1);
-      count++;
     } else if (mv == killer_b) {
       set_sort_key(&move_list[mv_index], SORT_MASK - 2);
-      count++;
     } else {
       ptype_t  pce = ptype_mv_of(mv);
       rot_t    ro  = rot_of(mv);   // rotation
