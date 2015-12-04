@@ -96,12 +96,16 @@ static score_t scout_search(searchNode *node, int depth,
   // sort_incremental(move_list, num_of_moves);
 
 #if PARALLEL
-  cilk_for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
-    do {
-      if (node->abort) continue;
+#define YBW_THRESHOLD 0 // young brothers wait threshold.
 
+  // Search nodes in parallel with young brothers wait.
+  if (num_of_moves > YBW_THRESHOLD) {
+    bool cutoff = false;
+    // First search serial.
+    // NOTE: serial code copy 1 of 3
+    for (int mv_index = 0; mv_index < YBW_THRESHOLD; mv_index++) {
       // Get the next move from the move list.
-      int local_index = __sync_fetch_and_add(&number_of_moves_evaluated, 1);
+      int local_index = number_of_moves_evaluated++;
       move_t mv = get_move(move_list[local_index]);
 
       if (TRACE_MOVES) {
@@ -127,18 +131,103 @@ static score_t scout_search(searchNode *node, int depth,
       }
 
       // process the score. Note that this mutates fields in node.
-      simple_acquire(&node_mutex);
-      bool cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);
-      simple_release(&node_mutex);
+      cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);
 
       if (cutoff) {
         node->abort = true;
+        break;
+      }
+    }
+
+    // If cutoff has not been found yet, search parallel.
+    if (!cutoff) {
+      cilk_for (int mv_index = YBW_THRESHOLD; mv_index < num_of_moves; mv_index++) {
+        do {
+          if (node->abort) continue;
+
+          // Get the next move from the move list.
+          int local_index = __sync_fetch_and_add(&number_of_moves_evaluated, 1);
+          move_t mv = get_move(move_list[local_index]);
+
+          if (TRACE_MOVES) {
+            print_move_info(mv, node->ply);
+          }
+
+          // increase node count
+          __sync_fetch_and_add(node_count_serial, 1);
+
+          moveEvaluationResult result;
+          evaluateMove(node, mv, killer_a, killer_b,
+                       SEARCH_SCOUT, node_count_serial, &result);
+
+          if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
+              || abortf || parallel_parent_aborted(node)) {
+            continue;
+          }
+
+          // A legal move is a move that's not KO, but when we are in quiescence
+          // we only want to count moves that has a capture.
+          if (result.type == MOVE_EVALUATED) {
+            node->legal_move_count++;
+          }
+
+          // process the score. Note that this mutates fields in node.
+          simple_acquire(&node_mutex);
+          bool cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);
+          simple_release(&node_mutex);
+
+          if (cutoff) {
+            node->abort = true;
+            continue;
+          }
+
+        } while (false);
+      }
+    }
+    
+  } else {
+    // Not enough nodes to even try cilk_for.
+    // NOTE: serial code copy 2 of 3
+    for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
+      // Get the next move from the move list.
+      int local_index = number_of_moves_evaluated++;
+      move_t mv = get_move(move_list[local_index]);
+
+      if (TRACE_MOVES) {
+        print_move_info(mv, node->ply);
+      }
+
+      // increase node count
+      __sync_fetch_and_add(node_count_serial, 1);
+
+      moveEvaluationResult result;
+      evaluateMove(node, mv, killer_a, killer_b,
+                   SEARCH_SCOUT, node_count_serial, &result);
+
+      if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
+          || abortf || parallel_parent_aborted(node)) {
         continue;
       }
 
-    } while (false);
+      // A legal move is a move that's not KO, but when we are in quiescence
+      // we only want to count moves that has a capture.
+      if (result.type == MOVE_EVALUATED) {
+        node->legal_move_count++;
+      }
+
+      // process the score. Note that this mutates fields in node.
+      bool cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);
+
+      if (cutoff) {
+        node->abort = true;
+        break;
+      }
+    }
   }
+  
 #else
+  // PARALLEL flag turned off, search serial.
+  // NOTE: serial code copy 3 of 3
   for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
     // Get the next move from the move list.
     int local_index = number_of_moves_evaluated++;
@@ -174,6 +263,7 @@ static score_t scout_search(searchNode *node, int depth,
       break;
     }
   }
+
 #endif
   if (parallel_parent_aborted(node)) {
     return 0;
@@ -192,5 +282,3 @@ static score_t scout_search(searchNode *node, int depth,
 
   return node->best_score;
 }
-
-
