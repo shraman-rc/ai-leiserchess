@@ -136,36 +136,108 @@ uint64_t compute_zob_key(position_t *p) {
   return key;
 }
 
+// NOTE: in order to preserve the node counts after changing the board size
+// from 16x16 to 12x12, we have to make sure our zob table is initialized
+// with the same values as in the 16x16 case
 void init_zob() {
-  for (int i = 0; i < ARR_SIZE; i++) {
-    for (int j = 0; j < (1 << PIECE_SIZE); j++) {
-      zob[i][j] = myrand();
+  int i;
+  // top files (just call rand)
+  for (int f = 0; f < 2; f++) {
+    for (int r = 0; r < 16; r++) {
+      for (int j = 0; j < (1 << PIECE_SIZE); j++) {
+        myrand();
+      }
     }
   }
+  // middle files (the ones we care about)
+  for (int f = 2; f < 14; f++) {
+    // left ranks (just call rand)
+    for (int r = 0; r < 2; r++) {
+      for (int j = 0; j < (1 << PIECE_SIZE); j++) {
+        myrand();
+      }
+    }
+    // middle ranks (the ones we care about)
+    for (int r = 2; r < 14; r++) {
+      i = 12*(f-2) + (r-2);
+      for (int j = 0; j < (1 << PIECE_SIZE); j++) {
+        zob[i][j] = myrand();
+      }
+    }
+    // right ranks (just call rand)
+    for (int r = 14; r < 16; r++) {
+      for (int j = 0; j < (1 << PIECE_SIZE); j++) {
+        myrand();
+      }
+    }
+  }
+  // bottom files (just call rand)
+  for (int f = 14; f < 16; f++) {
+    for (int r = 0; r < 16; r++) {
+      for (int j = 0; j < (1 << PIECE_SIZE); j++) {
+        myrand();
+      }
+    }
+  }
+  // for (int i = 0; i < ARR_SIZE; i++) {
+  //   for (int j = 0; j < (1 << PIECE_SIZE); j++) {
+  //     zob[i][j] = myrand();
+  //   }
+  // }
   zob_color = myrand();
 }
 
 // For no square, use 0, which is guaranteed to be off board
 inline square_t square_of(fil_t f, rnk_t r) {
   // square_t s = (((f + FIL_ORIGIN)) << FIL_SHIFT) | (((r + RNK_ORIGIN)));
-  square_t s = ARR_WIDTH * (FIL_ORIGIN + f) + RNK_ORIGIN + r;
+  square_t s = ARR_WIDTH * (1 + f) + 1 + r;
   DEBUG_LOG(1, "Square of (file %d, rank %d) is %d\n", f, r, s);
   tbassert((s >= 0) && (s < ARR_SIZE), "s: %d\n", s);
   return s;
 }
 
+fil_t sq_to_fil[ARR_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+                              0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0,
+                              0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0,
+                              0, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0,
+                              0, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0,
+                              0, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0,
+                              0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 0,
+                              0, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0,
+                              0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
 // Finds file of square
 inline fil_t fil_of(square_t sq) {
-  fil_t f = ((sq >> FIL_SHIFT) & FIL_MASK) - FIL_ORIGIN;
-  DEBUG_LOG(1, "File of square %d is %d\n", sq, f);
-  return f;
+  // fil_t f = ((sq >> FIL_SHIFT) & FIL_MASK) - FIL_ORIGIN;
+  // fil_t f = (sq / 12) - 1;
+  return sq_to_fil[sq];
+  // DEBUG_LOG(1, "File of square %d is %d\n", sq, f);
+  // return f;
 }
+
+rnk_t sq_to_rnk[ARR_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                              0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+                              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 // Finds rank of square
 inline rnk_t rnk_of(square_t sq) {
-  rnk_t r = ((sq >> RNK_SHIFT) & RNK_MASK) - RNK_ORIGIN;
-  DEBUG_LOG(1, "Rank of square %d is %d\n", sq, r);
-  return r;
+  // rnk_t r = ((sq >> RNK_SHIFT) & RNK_MASK) - RNK_ORIGIN;
+  // rnk_t r = (sq % 12) - 1;
+  // DEBUG_LOG(1, "Rank of square %d is %d\n", sq, r);
+  // return r;
+  return sq_to_rnk[sq];
 }
 
 // converts a square to string notation, returns number of characters printed
