@@ -96,7 +96,7 @@ static score_t scout_search(searchNode *node, int depth,
   // sort_incremental(move_list, num_of_moves);
 
 #if PARALLEL
-#define SS_YBW_THRESHOLD 100 // young brothers wait threshold. NOTE: also in search.c.
+#define SS_YBW_THRESHOLD 4 // young brothers wait threshold.
 
   // Search nodes in parallel with young brothers wait.
   if (num_of_moves > SS_YBW_THRESHOLD) {
