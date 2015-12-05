@@ -148,18 +148,141 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
   // Sort procesure moved to get_sortable_move_list.
   // sort_incremental(move_list, num_of_moves);
 
-  // Start searching moves.
-  for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
-    move_t mv = get_move(move_list[mv_index]);
+  // A simple mutex. See simple_mutex.h for implementation details.
+  simple_mutex_t node_mutex;
+  init_simple_mutex(&node_mutex);
 
-    num_moves_tried++;
-    (*node_count_serial)++;
+  // Start searching moves.
+#if PARALLEL
+#define SPV_YBW_THRESHOLD 100 // young brothers wait threshold. NOTE: also in search_scout.c.
+
+  // Search nodes in parallel with young brothers wait.
+  if (num_of_moves > SPV_YBW_THRESHOLD) {
+    bool cutoff = false;
+    // First search serial.
+    // NOTE: serial code copy 1 of 3
+    for (int mv_index = 0; mv_index < SPV_YBW_THRESHOLD; mv_index++) {
+      int local_index = num_moves_tried++;
+      move_t mv = get_move(move_list[local_index]);
+
+      __sync_fetch_and_add(node_count_serial, 1);
+
+      moveEvaluationResult result;
+      evaluateMove(node, mv, killer_a, killer_b,
+                   SEARCH_PV, node_count_serial, &result);
+
+      if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
+          || abortf || parallel_parent_aborted(node)) {
+        continue;
+      }
+
+      // A legal move is a move that's not KO, but when we are in quiescence
+      // we only want to count moves that has a capture.
+      if (result.type == MOVE_EVALUATED) {
+        node->legal_move_count++;
+      }
+
+      // Check if we should abort due to time control.
+      if (abortf) {
+        return 0;
+      }
+
+      cutoff = search_process_score(node, mv, mv_index, &result, SEARCH_PV);
+      if (cutoff) {
+        node->abort = true;
+        break;
+      }
+    }
+
+    // If cutoff has not been found yet, search parallel.
+    if (!cutoff) {
+      cilk_for (int mv_index = SPV_YBW_THRESHOLD; mv_index < num_of_moves; mv_index++) {
+        do {
+          if (node->abort) continue;
+
+          int local_index = __sync_fetch_and_add(&num_moves_tried, 1);
+          move_t mv = get_move(move_list[local_index]);
+
+          __sync_fetch_and_add(node_count_serial, 1);
+
+          moveEvaluationResult result;
+          evaluateMove(node, mv, killer_a, killer_b,
+                       SEARCH_PV, node_count_serial, &result);
+
+          if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
+              || abortf || parallel_parent_aborted(node)) {
+            continue;
+          }
+
+          // A legal move is a move that's not KO, but when we are in quiescence
+          // we only want to count moves that has a capture.
+          if (result.type == MOVE_EVALUATED) {
+            node->legal_move_count++;
+          }
+
+          simple_acquire(&node_mutex);
+          bool cutoff = search_process_score(node, mv, mv_index, &result, SEARCH_PV);
+          simple_release(&node_mutex);
+          if (cutoff) {
+            node->abort = true;
+            continue;
+          }
+        } while (false);
+      }
+    }
+  } else {
+    // Not enough nodes to even try cilk_for.
+    // NOTE: serial code copy 2 of 3
+    for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
+      int local_index = num_moves_tried++;
+      move_t mv = get_move(move_list[local_index]);
+
+      __sync_fetch_and_add(node_count_serial, 1);
+
+      moveEvaluationResult result;
+      evaluateMove(node, mv, killer_a, killer_b,
+                   SEARCH_PV, node_count_serial, &result);
+
+      if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
+          || abortf || parallel_parent_aborted(node)) {
+        continue;
+      }
+
+      // A legal move is a move that's not KO, but when we are in quiescence
+      // we only want to count moves that has a capture.
+      if (result.type == MOVE_EVALUATED) {
+        node->legal_move_count++;
+      }
+
+      // Check if we should abort due to time control.
+      if (abortf) {
+        return 0;
+      }
+
+      bool cutoff = search_process_score(node, mv, mv_index, &result, SEARCH_PV);
+      if (cutoff) {
+        node->abort = true;
+        break;
+      }
+    }
+  }
+
+#else
+
+  // PARALLEL flag turned off, search serial.
+  // NOTE: serial code copy 3 of 3
+  for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
+    int local_index = num_moves_tried++;
+    move_t mv = get_move(move_list[local_index]);
+
+    __sync_fetch_and_add(node_count_serial, 1);
 
     moveEvaluationResult result;
     evaluateMove(node, mv, killer_a, killer_b,
                  SEARCH_PV, node_count_serial, &result);
 
-    if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE) {
+    if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
+        || abortf || parallel_parent_aborted(node)) {
       continue;
     }
 
@@ -176,9 +299,12 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
 
     bool cutoff = search_process_score(node, mv, mv_index, &result, SEARCH_PV);
     if (cutoff) {
+      node->abort = true;
       break;
     }
   }
+
+#endif
 
   if (node->quiescence == false) {
     update_best_move_history(&(node->position), node->best_move_index,

@@ -96,14 +96,14 @@ static score_t scout_search(searchNode *node, int depth,
   // sort_incremental(move_list, num_of_moves);
 
 #if PARALLEL
-#define YBW_THRESHOLD 0 // young brothers wait threshold.
+#define SS_YBW_THRESHOLD 100 // young brothers wait threshold. NOTE: also in search.c.
 
   // Search nodes in parallel with young brothers wait.
-  if (num_of_moves > YBW_THRESHOLD) {
+  if (num_of_moves > SS_YBW_THRESHOLD) {
     bool cutoff = false;
     // First search serial.
     // NOTE: serial code copy 1 of 3
-    for (int mv_index = 0; mv_index < YBW_THRESHOLD; mv_index++) {
+    for (int mv_index = 0; mv_index < SS_YBW_THRESHOLD; mv_index++) {
       // Get the next move from the move list.
       int local_index = number_of_moves_evaluated++;
       move_t mv = get_move(move_list[local_index]);
@@ -141,7 +141,7 @@ static score_t scout_search(searchNode *node, int depth,
 
     // If cutoff has not been found yet, search parallel.
     if (!cutoff) {
-      cilk_for (int mv_index = YBW_THRESHOLD; mv_index < num_of_moves; mv_index++) {
+      cilk_for (int mv_index = SS_YBW_THRESHOLD; mv_index < num_of_moves; mv_index++) {
         do {
           if (node->abort) continue;
 
