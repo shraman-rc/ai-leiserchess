@@ -342,6 +342,7 @@ int fen_to_pos(position_t *p, char *fen) {
   int c_count = 0;  // Invariant: fen[c_count] is next char to be read
 
   for (int i = 0; i < ARR_SIZE; ++i) {
+    p->board[i] = 0;  // See https://piazza.com/class/id0o741g1iau8?cid=681
     set_ptype(&p->board[i], INVALID);  // squares are invalid until filled
   }
 

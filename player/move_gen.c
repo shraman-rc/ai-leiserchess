@@ -103,6 +103,18 @@ void set_ori(piece_t *x, int ori) {
       (*x & ~(ORI_MASK << ORI_SHIFT));
 }
 
+bool is_pinned(piece_t x) {
+  return (x >> PINNED_SHIFT) & PINNED_MASK;
+}
+
+void mark_pinned(piece_t *x) {
+  *x = (1 << PINNED_SHIFT) | (*x & ~(1 << PINNED_SHIFT));
+}
+
+void unmark_pinned(piece_t *x) {
+  *x = *x & ~(1 << PINNED_SHIFT);
+}
+
 // King orientations
 char *king_ori_to_rep[2][NUM_ORI] = { { "NN", "EE", "SS", "WW" },
                                       { "nn", "ee", "ss", "ww" } };
@@ -127,7 +139,7 @@ uint64_t compute_zob_key(position_t *p) {
   for (int f = 0; f < BOARD_WIDTH; f++) {
     for (int r = 0; r < BOARD_WIDTH; r++) {
       square_t sq = square_of(f, r);
-      key ^= zob[sq][p->board[sq]];
+      key ^= zob[sq][p->board[sq] & PIECE_MASK];
     }
   }
   if (color_to_move_of(p) == BLACK)
@@ -351,10 +363,13 @@ void move_to_str(move_t mv, char *buf, size_t bufsize) {
 int generate_all(position_t *p, sortable_move_t *sortable_move_list,
                  bool strict) {
   color_t color_to_move = color_to_move_of(p);
-  // Make sure that the enemy_laser map is marked
 
-  bool laser_map[ARR_SIZE] = {false};
-  mark_laser_path_pinned_pawns(p, laser_map, opp_color(color_to_move));
+  // Clear pinned bits of the pieces.
+  for (int i = 0; i < ARR_SIZE; ++i) {
+    unmark_pinned(&p->board[i]);
+  }
+  // Make sure that the enemy_laser map is marked.
+  mark_laser_path_pinned_pawns(p, opp_color(color_to_move));
 
   int move_count = 0;
 
@@ -374,7 +389,7 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
         case EMPTY:
           break;
         case PAWN:
-          if (laser_map[sq]) continue;  // Piece is pinned down by laser.
+          if (is_pinned(x)) continue;  // Piece is pinned down by laser.
           for (int d = 0; d < 8; d++) {
             int dest = sq + dir[d];
             // Skip moves into invalid squares, squares occupied by
@@ -488,14 +503,14 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
     }
 
     // Hash key updates
-    p->key ^= zob[from_sq][from_piece];  // remove from_piece from from_sq
-    p->key ^= zob[to_sq][to_piece];  // remove to_piece from to_sq
+    p->key ^= zob[from_sq][from_piece & PIECE_MASK];  // remove from_piece from from_sq
+    p->key ^= zob[to_sq][to_piece & PIECE_MASK];  // remove to_piece from to_sq
 
     p->board[to_sq] = from_piece;  // swap from_piece and to_piece on board
     p->board[from_sq] = to_piece;
 
-    p->key ^= zob[to_sq][from_piece];  // place from_piece in to_sq
-    p->key ^= zob[from_sq][to_piece];  // place to_piece in from_sq
+    p->key ^= zob[to_sq][from_piece & PIECE_MASK];  // place from_piece in to_sq
+    p->key ^= zob[from_sq][to_piece & PIECE_MASK];  // place to_piece in from_sq
 
     // Update King locations if necessary
     if (ptype_of(from_piece) == KING) {
@@ -507,10 +522,10 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
 
   } else {  // rotation
     // remove from_piece from from_sq in hash
-    p->key ^= zob[from_sq][from_piece];
+    p->key ^= zob[from_sq][from_piece & PIECE_MASK];
     set_ori(&from_piece, rot + ori_of(from_piece));  // rotate from_piece
     p->board[from_sq] = from_piece;  // place rotated piece on board
-    p->key ^= zob[from_sq][from_piece];              // ... and in hash
+    p->key ^= zob[from_sq][from_piece & PIECE_MASK];              // ... and in hash
   }
 
   // Increment ply
@@ -587,9 +602,9 @@ bool make_move(position_t *old, position_t *p, move_t mv) {
   } else {  // we definitely stomped something
     p->victims.stomped = p->board[stomped_sq];
 
-    p->key ^= zob[stomped_sq][p->victims.stomped];   // remove from board
+    p->key ^= zob[stomped_sq][p->victims.stomped & PIECE_MASK];   // remove from board
     p->board[stomped_sq] = 0;
-    p->key ^= zob[stomped_sq][p->board[stomped_sq]];
+    p->key ^= zob[stomped_sq][p->board[stomped_sq] & PIECE_MASK];
 
     tbassert(p->key == compute_zob_key(p),
              "p->key: %"PRIu64", zob-key: %"PRIu64"\n",
@@ -623,7 +638,7 @@ bool make_move(position_t *old, position_t *p, move_t mv) {
     p->victims.zapped = p->board[victim_sq];
     p->victims.zapped_square = victim_sq;
 
-    p->key ^= zob[victim_sq][p->victims.zapped];   // remove from board
+    p->key ^= zob[victim_sq][p->victims.zapped & PIECE_MASK];   // remove from board
     p->board[victim_sq] = 0;
     p->key ^= zob[victim_sq][0];
 
@@ -670,7 +685,7 @@ static uint64_t perft_search(position_t *p, int depth, int ply) {
                ptype_of(np.board[stomped_sq]));
 
       np.victims.stomped = np.board[stomped_sq];
-      np.key ^= zob[stomped_sq][np.victims.stomped];   // remove from board
+      np.key ^= zob[stomped_sq][np.victims.stomped & PIECE_MASK];   // remove from board
       np.board[stomped_sq] = 0;
       np.key ^= zob[stomped_sq][0];
     }
@@ -687,7 +702,7 @@ static uint64_t perft_search(position_t *p, int depth, int ply) {
       np.victims.zapped = np.board[victim_sq];
       np.victims.zapped_square = victim_sq;  // just in case
 
-      np.key ^= zob[victim_sq][np.victims.zapped];   // remove from board
+      np.key ^= zob[victim_sq][np.victims.zapped & PIECE_MASK];   // remove from board
       np.board[victim_sq] = 0;
       np.key ^= zob[victim_sq][0];
     }

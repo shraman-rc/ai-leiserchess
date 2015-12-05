@@ -123,15 +123,14 @@ ev_score_t kaggressive(int delta_fil, int delta_rnk, fil_t f, rnk_t r) {
 // Marks the path of the laser until it hits a piece or goes off the board.
 //
 // p : current board state
-// laser_map : end result will be stored here. Every square on the
-//             path of the laser is marked with mark_mask
+// laser_map : now stored in high order bits of board pieces
 // c : color of king shooting laser
 // marks all hit squares with true
 // NOTE: most of this code is duplicated in compute_all_laser_path_heuristics
 
 // NOTE: now ONLY MARKS PINNED PAWNS
-void mark_laser_path_pinned_pawns(position_t *p, bool *laser_map, color_t c) {
-  // Fire laser, recording in laser_map
+void mark_laser_path_pinned_pawns(position_t *p, color_t c) {
+  // Fire laser and record pinned status in high order bits of pawn pieces
   square_t sq = p->kloc[c];
   int8_t bdir = ori_of(p->board[sq]);
 
@@ -146,7 +145,7 @@ void mark_laser_path_pinned_pawns(position_t *p, bool *laser_map, color_t c) {
       case EMPTY:  // empty square
         break;
       case PAWN:  // Pawn
-        laser_map[sq] = true;
+        mark_pinned(&p->board[sq]);
         bdir = reflect_of(bdir, ori_of(p->board[sq]));
         if (bdir < 0) {  // Hit back of Pawn
           return;

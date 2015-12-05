@@ -39,6 +39,7 @@ typedef uint8_t fil_t;
 // -----------------------------------------------------------------------------
 
 #define PIECE_SIZE 5  // Number of bits in (ptype, color, orientation)
+#define PIECE_MASK 31  // Used to mask away higher order bits beyond the 5 original
 // ptype_of is called most often, followed by color_of, followed by ori_of so the best order is:
 // high--orientation, color, ptype--low
 // TODO: figure out why changing the bit orders fails (maybe hard coded stuff somewhere)
@@ -91,6 +92,11 @@ typedef enum {
   SE,
   SW
 } pawn_ori_t;
+
+
+// Store whether piece is pinned to replace laser_map
+#define PINNED_SHIFT 5
+#define PINNED_MASK 1
 
 // -----------------------------------------------------------------------------
 // moves
@@ -168,6 +174,9 @@ ptype_t ptype_of(piece_t x);
 void set_ptype(piece_t *x, ptype_t pt);
 int ori_of(piece_t x);
 void set_ori(piece_t *x, int ori);
+bool is_pinned(piece_t x);
+void mark_pinned(piece_t *x);
+void unmark_pinned(piece_t *x);
 void init_zob();
 square_t square_of(fil_t f, rnk_t r);
 fil_t fil_of(square_t sq);
@@ -184,6 +193,7 @@ move_t move_of(ptype_t typ, rot_t rot, square_t from_sq, square_t to_sq);
 void move_to_str(move_t mv, char *buf, size_t bufsize);
 int generate_all(position_t *p, sortable_move_t *sortable_move_list,
                  bool strict);
+
 void do_perft(position_t *gme, int depth, int ply);
 square_t low_level_make_move(position_t *old, position_t *p, move_t mv);
 bool make_move(position_t *old, position_t *p, move_t mv);
@@ -200,5 +210,5 @@ bool is_KO(victims_t victims);
 bool zero_victims(victims_t* victims);
 bool victim_exists(victims_t* victims);
 
-void mark_laser_path_pinned_pawns(position_t *p, bool *laser_map, color_t c);
+void mark_laser_path_pinned_pawns(position_t *p, color_t c);
 #endif  // MOVE_GEN_H
