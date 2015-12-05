@@ -444,12 +444,15 @@ static int get_sortable_move_list(searchNode *node, sortable_move_t * move_list,
                    best_move_history[BMH(fake_color_to_move, pce, ts, ot)]);
     }
     sortable_move_t insert = move_list[mv_index];
-    int hole = mv_index;
-    while (hole > 0 && insert > move_list[hole-1]) {
-      move_list[hole] = move_list[hole-1];
-      hole--;
+    // TODO: enable this optimization for final since node counts change
+    if (insert > SORT_MASK) {
+      int hole = mv_index;
+      while (hole > 0 && insert > move_list[hole-1]) {
+        move_list[hole] = move_list[hole-1];
+        hole--;
+      }
+      move_list[hole] = insert;
     }
-    move_list[hole] = insert;
   }
   return num_of_moves;
 }
