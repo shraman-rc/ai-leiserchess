@@ -198,11 +198,10 @@ ev_score_t compute_all_laser_path_heuristics(position_t* p, color_t c) {
   // mark true when hit by laser
   // only used by mobility computation, so only need to mark the eight squares around o_kloc
   // slightly faster than marking the entire array with false
-  bool laser_map[ARR_SIZE];
   for (uint8_t f = MAX(o_f_king - 1, 0); f < o_f_king + 2; ++f) {
     for (uint8_t r = MAX(o_r_king - 1, 0); r < o_r_king + 2; ++r) {
       square_t sq = square_of(f, r);
-      laser_map[sq] = false;
+      unmark_pinned(&p->board[sq]);
     }
   }
 
@@ -221,7 +220,7 @@ ev_score_t compute_all_laser_path_heuristics(position_t* p, color_t c) {
   bool brk = false;
   while (!brk) {
     sq += beam_of(bdir);
-    laser_map[sq] = true;
+    mark_pinned(&p->board[sq]);
     piece_t piece = p->board[sq];
 
     tbassert(sq < ARR_SIZE && sq >= 0, "sq: %d\n", sq);
@@ -259,7 +258,7 @@ ev_score_t compute_all_laser_path_heuristics(position_t* p, color_t c) {
   for (uint8_t f = MAX(o_f_king - 1, 0); f < MIN(o_f_king + 2, BOARD_WIDTH); ++f) {
     for (uint8_t r = MAX(o_r_king - 1, 0); r < MIN(o_r_king + 2, BOARD_WIDTH); ++r) {
       square_t sq = square_of(f, r);
-      if (laser_map[sq] == false) {
+      if (is_pinned(p->board[sq]) == false) {
         o_mobility++;
       }
     }
