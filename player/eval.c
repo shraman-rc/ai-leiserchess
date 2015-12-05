@@ -51,6 +51,71 @@ ev_score_t pcentral(fil_t f, rnk_t r) {
   return pcentral_values[f][r];
 }
 
+void print_board_show_pins(position_t* p) {
+  printf("  _0_1_2_3_4_5_6_7_8_9\n");
+  for (int r = BOARD_WIDTH-1; r >= 0; r--) {
+    printf("%d|", r);
+    for (int f = 0; f < BOARD_WIDTH; f++) {
+      square_t sq = square_of(f, r);
+      printf(" %d", is_pinned(p->board[sq]));
+    }
+    printf("\n");
+  }
+}
+
+void print_board(position_t* p) {
+  printf("  _0_1_2_3_4_5_6_7_8_9\n");
+  for (int r = BOARD_WIDTH-1; r >= 0; r--) {
+    printf("%d|", r);
+    for (int f = 0; f < BOARD_WIDTH; f++) {
+      square_t sq = square_of(f, r);
+      if (ptype_of(p->board[sq]) == PAWN) {
+        if (color_of(p->board[sq]) == WHITE) {
+          if (is_pinned(p->board[sq])) {
+            printf(" P");
+          } else {
+            printf(" p");
+          }
+        } else {
+          if (is_pinned(p->board[sq])) {
+            printf(" Q");
+          } else {
+            printf(" q");
+          }
+        }
+      } else if (ptype_of(p->board[sq]) == KING) {
+        if (color_of(p->board[sq]) == WHITE) {
+          printf(" K");
+        } else {
+          printf(" L");
+        }
+      } else {
+        printf("  ");
+      }
+    }
+    printf("\n");
+  }
+}
+
+void print_square(square_t sq) {
+  printf("[%d, %d]", rnk_of(sq), fil_of(sq));
+}
+
+void print_last_move(position_t* p) {
+  if (ptype_mv_of(p->last_move) == PAWN) {
+    printf("PAWN [");
+  } else {
+    tbassert(ptype_mv_of(p->last_move) == KING, "fail\n");
+    printf("KING [");
+  }
+  printf("[%d, %d] -> [%d, %d]  (r, f)\n",
+    rnk_of(from_square(p->last_move)),
+    fil_of(from_square(p->last_move)),
+    rnk_of(to_square(p->last_move)),
+    fil_of(to_square(p->last_move)));
+
+}
+
 
 // returns true if c lies on or between a and b, which are not ordered
 bool between(int c, int a, int b) {
@@ -184,7 +249,7 @@ float h_dist(square_t a, fil_t f, rnk_t r) {
 
 // PAWNPIN Heuristic --- is a pawn immobilized by the enemy laser.
 // H_SQUARES_ATTACKABLE heuristic: for shooting the enemy king.
-// MOBILITY heuristic: safe squares around king of color color.
+// MOBILITY heuristic: safe squares around king of color c.
 // c is the color of the king shooting the laser
 ev_score_t compute_all_laser_path_heuristics(position_t* p, color_t c) {
   uint8_t o_pinned_pawns = 0;  // number of pinned pawns of color opp_c
