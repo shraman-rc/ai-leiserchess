@@ -6,7 +6,7 @@ UNAME := $(shell uname)
 
 ifeq ($(PARALLEL),1)
 	OS_TYPE := Parallel Linux
-	PFLAG := -DPARALLEL -D_BSD_SOURCE -D_XOPEN_SOURCE # -g needed for test framework assertions
+	PFLAG := -DPARALLEL -D_BSD_SOURCE # -g needed for test framework assertions
 	CFLAGS := -std=gnu99 -Wall -fcilkplus -g
 	LDFLAGS= -Wall -lrt -lm -lcilkrts -ldl -lpthread
 else
