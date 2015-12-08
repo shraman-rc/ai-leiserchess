@@ -95,147 +95,118 @@ static score_t scout_search(searchNode *node, int depth,
   // Sort procedure moved to get_sortable_move_list.
   // sort_incremental(move_list, num_of_moves);
 
-#if PARALLELTODO
-#define SS_YBW_THRESHOLD 100 // young brothers wait threshold.
+#if PARALLEL
+
+#define SS_YBW_THRESHOLD 5 // young brothers wait threshold.
 
   // Search nodes in parallel with young brothers wait.
-  if (num_of_moves > SS_YBW_THRESHOLD) {
-    bool cutoff = false;
-    // First search serial.
-    // NOTE: serial code copy 1 of 3
-    for (int mv_index = 0; mv_index < SS_YBW_THRESHOLD; mv_index++) {
-      // Get the next move from the move list.
-      int local_index = number_of_moves_evaluated++;
-      move_t mv = get_move(move_list[local_index]);
+  // First search serial.
+  // NOTE: serial code copy 1 of 2 (slightly different from the other serial version below)
+  int num_valid_moves_evaluated = 0;
+  for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
 
-      if (TRACE_MOVES) {
-        print_move_info(mv, node->ply);
-      }
-
-      // increase node count
-      __sync_fetch_and_add(node_count_serial, 1);
-
-      moveEvaluationResult result;
-      evaluateMove(node, mv, killer_a, killer_b,
-                   SEARCH_SCOUT, node_count_serial, &result);
-
-      if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
-          || abortf || parallel_parent_aborted(node)) {
-        continue;
-      }
-
-      // A legal move is a move that's not KO, but when we are in quiescence
-      // we only want to count moves that has a capture.
-      if (result.type == MOVE_EVALUATED) {
-        node->legal_move_count++;
-      }
-
-      // process the score. Note that this mutates fields in node.
-      cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);
-
-      if (cutoff) {
-        node->abort = true;
-        break;
-      }
+    if (node->legal_move_count >= SS_YBW_THRESHOLD) {
+      break;
     }
 
-    // If cutoff has not been found yet, search parallel.
-    if (!cutoff) {
-      cilk_for (int mv_index = SS_YBW_THRESHOLD; mv_index < num_of_moves; mv_index++) {
-        do {
-          if (node->abort) continue;
+    // Get the next move from the move list.
+    int local_index = number_of_moves_evaluated++;
+    move_t mv = get_move(move_list[local_index]);
 
-          // Get the next move from the move list.
-          int local_index = __sync_fetch_and_add(&number_of_moves_evaluated, 1);
-          move_t mv = get_move(move_list[local_index]);
+    // if (TRACE_MOVES) {
+    //   print_move_info(mv, node->ply);
+    // }
 
-          if (TRACE_MOVES) {
-            print_move_info(mv, node->ply);
-          }
+    // increase node count
+    __sync_fetch_and_add(node_count_serial, 1);
 
-          // increase node count
-          __sync_fetch_and_add(node_count_serial, 1);
+    moveEvaluationResult result;
+    evaluateMove(node, mv, killer_a, killer_b,
+                 SEARCH_SCOUT, node_count_serial, &result);
 
-          moveEvaluationResult result;
-          evaluateMove(node, mv, killer_a, killer_b,
-                       SEARCH_SCOUT, node_count_serial, &result);
-
-          if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
-              || abortf || parallel_parent_aborted(node)) {
-            continue;
-          }
-
-          // A legal move is a move that's not KO, but when we are in quiescence
-          // we only want to count moves that has a capture.
-          if (result.type == MOVE_EVALUATED) {
-            node->legal_move_count++;
-          }
-
-          // process the score. Note that this mutates fields in node.
-          simple_acquire(&node_mutex);
-          bool cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);
-          simple_release(&node_mutex);
-
-          if (cutoff) {
-            node->abort = true;
-            continue;
-          }
-
-        } while (false);
-      }
+    if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
+        || abortf || parallel_parent_aborted(node)) {
+      continue;
     }
-    
-  } else {
-    // Not enough nodes to even try cilk_for.
-    // NOTE: serial code copy 2 of 3
-    for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
-      // Get the next move from the move list.
-      int local_index = number_of_moves_evaluated++;
-      move_t mv = get_move(move_list[local_index]);
 
-      if (TRACE_MOVES) {
-        print_move_info(mv, node->ply);
-      }
+    // A legal move is a move that's not KO, but when we are in quiescence
+    // we only want to count moves that has a capture.
+    if (result.type == MOVE_EVALUATED) {
+      node->legal_move_count++;
+    }
 
-      // increase node count
-      __sync_fetch_and_add(node_count_serial, 1);
+    // process the score. Note that this mutates fields in node.
+    bool cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);
 
-      moveEvaluationResult result;
-      evaluateMove(node, mv, killer_a, killer_b,
-                   SEARCH_SCOUT, node_count_serial, &result);
+    if (cutoff) {
+      node->abort = true;
+      break;
+    }
+    num_valid_moves_evaluated++;
+  }
 
-      if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
-          || abortf || parallel_parent_aborted(node)) {
-        continue;
-      }
+  // If cutoff has not been found yet, search parallel.
+  if (!node->abort) {
+    if (parallel_parent_aborted(node)) {
+      return 0;
+    }
 
-      // A legal move is a move that's not KO, but when we are in quiescence
-      // we only want to count moves that has a capture.
-      if (result.type == MOVE_EVALUATED) {
-        node->legal_move_count++;
-      }
+    cilk_for (int mv_index = number_of_moves_evaluated; mv_index < num_of_moves; mv_index++) {
+      do {
+        if (node->abort) continue;
 
-      // process the score. Note that this mutates fields in node.
-      bool cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);
+        // Get the next move from the move list.
+        int local_index = __sync_fetch_and_add(&number_of_moves_evaluated, 1);
+        move_t mv = get_move(move_list[local_index]);
 
-      if (cutoff) {
-        node->abort = true;
-        break;
-      }
+        // if (TRACE_MOVES) {
+        //   print_move_info(mv, node->ply);
+        // }
+
+        // increase node count
+        __sync_fetch_and_add(node_count_serial, 1);
+
+        moveEvaluationResult result;
+        evaluateMove(node, mv, killer_a, killer_b,
+                     SEARCH_SCOUT, node_count_serial, &result);
+
+        if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
+            || abortf || node->abort || parallel_parent_aborted(node)) {
+          continue;
+        }
+
+        // A legal move is a move that's not KO, but when we are in quiescence
+        // we only want to count moves that has a capture.
+        if (result.type == MOVE_EVALUATED) {
+          __sync_fetch_and_add(&node->legal_move_count, 1);
+        }
+
+        // process the score. Note that this mutates fields in node.
+        simple_acquire(&node_mutex);
+        bool cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);
+        simple_release(&node_mutex);
+
+        if (cutoff) {
+          node->abort = true;
+          continue;
+        }
+
+      } while (false);
     }
   }
-  
+
 #else
+
   // PARALLEL flag turned off, search serial.
-  // NOTE: serial code copy 3 of 3
+  // NOTE: serial code copy 2 of 2
   for (int mv_index = 0; mv_index < num_of_moves; mv_index++) {
     // Get the next move from the move list.
     int local_index = number_of_moves_evaluated++;
     move_t mv = get_move(move_list[local_index]);
 
-    if (TRACE_MOVES) {
-      print_move_info(mv, node->ply);
-    }
+    // if (TRACE_MOVES) {
+    //   print_move_info(mv, node->ply);
+    // }
 
     // increase node count
     __sync_fetch_and_add(node_count_serial, 1);
@@ -265,6 +236,7 @@ static score_t scout_search(searchNode *node, int depth,
   }
 
 #endif
+
   if (parallel_parent_aborted(node)) {
     return 0;
   }
