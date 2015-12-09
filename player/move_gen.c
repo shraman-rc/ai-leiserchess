@@ -446,7 +446,8 @@ int generate_all(position_t *p, sortable_move_t *sortable_move_list,
   return move_count;
 }
 
-square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
+//square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
+square_t low_level_make_move(position_t *p, move_t mv) {
   tbassert(mv != 0, "mv was zero.\n");
 
   square_t stomped_dst_sq = 0;
@@ -456,19 +457,21 @@ square_t low_level_make_move(position_t *old, position_t *p, move_t mv) {
 
   // really expensive
   // *p = *old;
-  memcpy(p->board, old->board, ARR_SIZE*sizeof(piece_t));
-  memcpy(p->kloc, old->kloc, 2*sizeof(square_t));
-  p->key = old->key;
-  p->ply = old->ply;
+  //memcpy(p->board, old->board, ARR_SIZE*sizeof(piece_t));
+  //memcpy(p->kloc, old->kloc, 2*sizeof(square_t));
+  //p->key = old->key;
+  //p->ply = old->ply;
+
   // don't need to copy victims as they will be set shortly
-  p->pawn_count = old->pawn_count;
-  p->p_between = old->p_between;
-  p->p_central = old->p_central;
-  p->ev_score_valid = old->ev_score_valid;
+  //p->pawn_count = old->pawn_count;
+  //p->p_between = old->p_between;
+  //p->p_central = old->p_central;
+  //p->ev_score_valid = old->ev_score_valid;
 
   p->ev_score_needs_update = true;
-  p->history = old;
-  p->last_move = mv;
+  p->history = old; !!! // Replace calls to this everywhere.
+  //p->last_move = mv;
+  p->move_history[p->move_counter++] = mv; !!!
   p->key ^= zob_color;   // swap color to move
 
   tbassert(from_sq < ARR_SIZE && from_sq > 0, "from_sq: %d\n", from_sq);
@@ -577,22 +580,79 @@ square_t fire(position_t *p) {
 }
 
 
+// Reverse a board to its original state given the move
+// that was performed to get to the current p
+void unmake_move(position_t *p, move_t mv) {
+  // TODO: Remove unnecessary steps in this function
+
+  // Unzap victims (unmark_pinned) TODO: Expensive? Necessary?
+  // TODO: This is NOT accurate -- undoing a move can bring back pinned pawns! (right?)
+  for (int i = 0; i < ARR_SIZE; ++i) {
+    unmark_pinned(&p->board[i]);
+  }
+
+  square_t from_sq = from_square(mv);
+  square_t to_sq = to_square(mv);
+  piece_t orig_from_piece = p->board[to_sq]; // Original piece is in new location
+  piece_t orig_to_piece = 0; // By default, an empty square unless was stomped
+  rot_t rot = rot_of(mv);
+
+  // Unstomp victims (restore them)
+  // TODO: Is this accurate? (can boards persist "stompedness")?
+  if (p->victims.stomped != 0) {
+    // undo remove from board (Note we use from_sq since we swap them below)
+    orig_to_piece = p->victims.stomped;
+    p->key ^= zob[from_sq][0 & PIECE_MASK]; // remove empty square from hash
+    p->board[from_sq] = orig_to_piece; // replace victim piece
+    p->key ^= zob[from_sq][orig_to_piece & PIECE_MASK]; // undo remove of victim piece
+    p->victims.stomped = 0; // reset victim to nothing
+  }
+
+  // Reverse low_level_make_move ops (e.g. ply--, pop off last move, etc.)
+  p->ply--;
+  if (to_sq != from_sq) {  // move, not rotation
+
+    // Hash key updates
+    p->key ^= zob[from_sq][from_piece & PIECE_MASK];  // remove from_piece from from_sq
+    p->key ^= zob[to_sq][to_piece & PIECE_MASK];  // remove to_piece from to_sq
+
+    p->board[to_sq] = from_piece;  // swap from_piece and to_piece on board
+    p->board[from_sq] = to_piece;
+
+    p->key ^= zob[to_sq][from_piece & PIECE_MASK];  // place from_piece in to_sq
+    p->key ^= zob[from_sq][to_piece & PIECE_MASK];  // place to_piece in from_sq
+
+    // Update King locations if necessary
+    if (ptype_of(from_piece) == KING) {
+      p->kloc[color_of(from_piece)] = to_sq;
+    }
+    if (ptype_of(to_piece) == KING) {
+      p->kloc[color_of(to_piece)] = from_sq;
+    }
+
+  } else {  // rotation
+    // remove from_piece from from_sq in hash
+    p->key ^= zob[from_sq][from_piece & PIECE_MASK];
+    set_ori(&from_piece, rot + ori_of(from_piece));  // rotate from_piece
+    p->board[from_sq] = from_piece;  // place rotated piece on board
+    p->key ^= zob[from_sq][from_piece & PIECE_MASK];              // ... and in hash
+  }
+
+  p->move_counter--; // No need to erase move_history, this essentially pops it
+  p->ev_score_needs_update = false; // TODO: What is this?
+  p->key ^= zob_color;   // TODO: What is this?
+
+}
+
 // return victim pieces or KO
 // return whether is_KO
-bool make_move(position_t *old, position_t *p, move_t mv) {
+//bool make_move(position_t *old, position_t *p, move_t mv) {
+bool make_move(position_t *p, move_t mv) {
   tbassert(mv != 0, "mv was zero.\n");
 
-  WHEN_DEBUG_VERBOSE(char buf[MAX_CHARS_IN_MOVE]);
-
   // move phase 1 - moving a piece, which may result in a stomp
-  square_t stomped_sq = low_level_make_move(old, p, mv);
-
-  WHEN_DEBUG_VERBOSE({
-      if (stomped_sq != 0) {
-        square_to_str(stomped_sq, buf, MAX_CHARS_IN_MOVE);
-        DEBUG_LOG(1, "Stomping piece on %s\n", buf);
-      }
-    });
+  //square_t stomped_sq = low_level_make_move(old, p, mv);
+  square_t stomped_sq = low_level_make_move(p, mv);
 
   if (stomped_sq == 0) {
     p->victims.stomped = 0;
@@ -610,21 +670,10 @@ bool make_move(position_t *old, position_t *p, move_t mv) {
              "p->key: %"PRIu64", zob-key: %"PRIu64"\n",
              p->key, compute_zob_key(p));
 
-    WHEN_DEBUG_VERBOSE({
-        square_to_str(stomped_sq, buf, MAX_CHARS_IN_MOVE);
-        DEBUG_LOG(1, "Stomped piece on %s\n", buf);
-      });
   }
 
   // move phase 2 - shooting the laser
   square_t victim_sq = fire(p);
-
-  WHEN_DEBUG_VERBOSE({
-      if (victim_sq != 0) {
-        square_to_str(victim_sq, buf, MAX_CHARS_IN_MOVE);
-        DEBUG_LOG(1, "Zapping piece on %s\n", buf);
-      }
-    });
 
   if (victim_sq == 0) {
     p->victims.zapped = 0;
@@ -646,10 +695,6 @@ bool make_move(position_t *old, position_t *p, move_t mv) {
              "p->key: %"PRIu64", zob-key: %"PRIu64"\n",
              p->key, compute_zob_key(p));
 
-    WHEN_DEBUG_VERBOSE({
-        square_to_str(victim_sq, buf, MAX_CHARS_IN_MOVE);
-        DEBUG_LOG(1, "Zapped piece on %s\n", buf);
-      });
   }
 
   return false; // p->victims;

@@ -96,14 +96,16 @@ static void initialize_pv_node(searchNode* node, int depth) {
 
 // Perform a Principle Variation Search
 //   https://chessprogramming.wikispaces.com/Principal+Variation+Search
-static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial) {
+//static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial) {
+static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial, position_t* p) {
   // Initialize the searchNode data structure.
   initialize_pv_node(node, depth);
 
   // Pre-evaluate the node to determine if we need to search further.
 
   leafEvalResult pre_evaluation_result;
-  evaluate_as_leaf(node, SEARCH_PV, &pre_evaluation_result);
+  // evaluate_as_leaf(node, SEARCH_PV, &pre_evaluation_result);
+  evaluate_as_leaf(node, SEARCH_PV, &pre_evaluation_result, p);
 
   // use some information from the pre-evaluation
   int hash_table_move = pre_evaluation_result.hash_table_move;
@@ -141,7 +143,8 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
   //  scanning move_list from index 0 to k such that we update the table
   //  only for moves that we actually considered at this node.
   sortable_move_t move_list[MAX_NUM_MOVES];
-  int num_of_moves = get_sortable_move_list(node, move_list, hash_table_move);
+  //int num_of_moves = get_sortable_move_list(node, move_list, hash_table_move);
+  int num_of_moves = get_sortable_move_list(node, move_list, hash_table_move, p);
   int num_moves_tried = 0;
 
   // Incrementally sort the move list.
@@ -157,10 +160,13 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
 
     moveEvaluationResult result;
     evaluateMove(node, mv, killer_a, killer_b,
-                 SEARCH_PV, node_count_serial, &result);
+                 //SEARCH_PV, node_count_serial, &result);
+                 SEARCH_PV, node_count_serial, &result, p);
 
     if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
         || abortf || parallel_parent_aborted(node)) {
+      // Unmake the move before continuing to next move
+      unmake_move(p, mv);
       continue;
     }
 
@@ -175,6 +181,9 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
       return 0;
     }
 
+    // Unmake the move before continuing to next move
+    unmake_move(p, mv);
+
     bool cutoff = search_process_score(node, mv, mv_index, &result, SEARCH_PV);
     if (cutoff) {
       node->abort = true;
@@ -183,7 +192,8 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
   }
 
   if (node->quiescence == false) {
-    update_best_move_history(&(node->position), node->best_move_index,
+    //update_best_move_history(&(node->position), node->best_move_index,
+    update_best_move_history(p, node->best_move_index,
                              move_list, num_moves_tried);
   }
 
@@ -195,7 +205,8 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
   // Note: This function reads node->best_score, node->orig_alpha,
   //   node->position.key, node->depth, node->ply, node->beta,
   //   node->alpha, node->subpv
-  update_transposition_table(node);
+  // update_transposition_table(node);
+  update_transposition_table(node, p);
 
   return node->best_score;
 }
@@ -261,12 +272,16 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
     (*node_count_serial)++;
 
     // make the move.
-    bool isko = make_move(&(rootNode.position), &(next_node.position), mv);
+    // bool isko = make_move(&(rootNode.position), &(next_node.position), mv);
+    bool isko = make_move(&(rootNode.position), mv);
     if (isko) {
+      // Unmake the move before continuing to next move
+      unmake_move(&(rootNode.position), mv);
       continue;  // not a legal move
     }
 
-    victims_t* x = &next_node.position.victims;
+    // victims_t* x = &next_node.position.victims;
+    victims_t* x = &rootNode.position.victims;
 
     if (is_game_over(x, rootNode.pov, rootNode.ply)) {
       score = get_game_over_score(x, rootNode.pov, rootNode.ply);
@@ -274,22 +289,26 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
       goto scored;
     }
 
-    if (is_repeated(&(next_node.position), rootNode.ply)) {
-      score = get_draw_score(&(next_node.position), rootNode.ply);
+    //if (is_repeated(&(next_node.position), rootNode.ply)) {
+    if (is_repeated(&(rootNode.position), rootNode.ply)) {
+      // score = get_draw_score(&(next_node.position), rootNode.ply);
+      score = get_draw_score(&(rootNode.position), rootNode.ply);
       next_node.subpv[0] = 0;
       goto scored;
     }
 
     if (mv_index == 0 || rootNode.depth == 1) {
       // We guess that the first move is the principle variation
-      score = -searchPV(&next_node, rootNode.depth-1, node_count_serial);
+      // score = -searchPV(&next_node, rootNode.depth-1, node_count_serial);
+      score = -searchPV(&next_node, rootNode.depth-1, node_count_serial, &(rootNode.position));
 
       // Check if we should abort due to time control.
       if (abortf) {
         return 0;
       }
     } else {
-      score = -scout_search(&next_node, rootNode.depth-1, node_count_serial);
+      // score = -scout_search(&next_node, rootNode.depth-1, node_count_serial);
+      score = -scout_search(&next_node, rootNode.depth-1, node_count_serial, &(rootNode.position));
 
       // Check if we should abort due to time control.
       if (abortf) {
@@ -298,7 +317,8 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
 
       // If its score exceeds the current best score,
       if (score > rootNode.alpha) {
-        score = -searchPV(&next_node, rootNode.depth-1, node_count_serial);
+        // score = -searchPV(&next_node, rootNode.depth-1, node_count_serial);
+        score = -searchPV(&next_node, rootNode.depth-1, node_count_serial, &(rootNode.position));
         // Check if we should abort due to time control.
         if (abortf) {
           return 0;
@@ -340,6 +360,9 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
       move_list[0] = mv;
     }
 
+    // Unmake the move before continuing to next move
+    unmake_move(&(rootNode.position), mv);
+
     // Normal alpha-beta logic: if the current score is better than what the
     // maximizer has been able to get so far, take that new value.  Likewise,
     // score >= beta is the beta cutoff condition
@@ -350,6 +373,7 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
       tbassert(0, "score: %d, beta: %d\n", score, rootNode.beta);
       break;
     }
+
   }
 
   return rootNode.best_score;

@@ -47,26 +47,32 @@ static void update_best_move_history(position_t *p, int index_of_best,
   }
 }
 
-static void update_transposition_table(searchNode* node) {
+//static void update_transposition_table(searchNode* node) {
+static void update_transposition_table(searchNode* node, position_t *p) {
   if (node->type == SEARCH_SCOUT) {
     if (node->best_score < node->beta) {
-      tt_hashtable_put(node->position.key, node->depth,
+      //tt_hashtable_put(node->position.key, node->depth,
+      tt_hashtable_put(p->key, node->depth,
                        tt_adjust_score_for_hashtable(node->best_score, node->ply),
                        UPPER, 0);
     } else {
-      tt_hashtable_put(node->position.key, node->depth,
+      //tt_hashtable_put(node->position.key, node->depth,
+      tt_hashtable_put(p->key, node->depth,
                        tt_adjust_score_for_hashtable(node->best_score, node->ply),
                        LOWER, node->subpv[0]);
     }
   } else if (node->type == SEARCH_PV) {
     if (node->best_score <= node->orig_alpha) {
-      tt_hashtable_put(node->position.key, node->depth,
+      //tt_hashtable_put(node->position.key, node->depth,
+      tt_hashtable_put(p->key, node->depth,
           tt_adjust_score_for_hashtable(node->best_score, node->ply), UPPER, 0);
     } else if (node->best_score >= node->beta) {
-      tt_hashtable_put(node->position.key, node->depth,
+      //tt_hashtable_put(node->position.key, node->depth,
+      tt_hashtable_put(p->key, node->depth,
           tt_adjust_score_for_hashtable(node->best_score, node->ply), LOWER, node->subpv[0]);
     } else {
-      tt_hashtable_put(node->position.key, node->depth,
+      //tt_hashtable_put(node->position.key, node->depth,
+      tt_hashtable_put(p->key, node->depth,
           tt_adjust_score_for_hashtable(node->best_score, node->ply), EXACT, node->subpv[0]);
     }
   }

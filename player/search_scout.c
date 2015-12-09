@@ -49,7 +49,8 @@ static void initialize_scout_node(searchNode *node, int depth) {
 }
 
 static score_t scout_search(searchNode *node, int depth,
-                            uint64_t *node_count_serial) {
+                            //uint64_t *node_count_serial) {
+                            uint64_t *node_count_serial, position_t* p) {
   // Initialize the search node.
   initialize_scout_node(node, depth);
 
@@ -60,7 +61,8 @@ static score_t scout_search(searchNode *node, int depth,
 
   // Pre-evaluate this position.
   leafEvalResult pre_evaluation_result;
-  evaluate_as_leaf(node, SEARCH_SCOUT, &pre_evaluation_result);
+  //evaluate_as_leaf(node, SEARCH_SCOUT, &pre_evaluation_result);
+  evaluate_as_leaf(node, SEARCH_SCOUT, &pre_evaluation_result, position_t *p);
 
   // If we decide to stop searching, return the pre-evaluation score.
   if (pre_evaluation_result.type == MOVE_EVALUATED) {
@@ -82,7 +84,8 @@ static score_t scout_search(searchNode *node, int depth,
   sortable_move_t move_list[MAX_NUM_MOVES];
 
   // Obtain the sorted move list.
-  int num_of_moves = get_sortable_move_list(node, move_list, hash_table_move);
+  //int num_of_moves = get_sortable_move_list(node, move_list, hash_table_move);
+  int num_of_moves = get_sortable_move_list(node, move_list, hash_table_move, p);
 
   int number_of_moves_evaluated = 0;
 
@@ -213,10 +216,13 @@ static score_t scout_search(searchNode *node, int depth,
 
     moveEvaluationResult result;
     evaluateMove(node, mv, killer_a, killer_b,
-                 SEARCH_SCOUT, node_count_serial, &result);
+                 //SEARCH_SCOUT, node_count_serial, &result);
+                 SEARCH_SCOUT, node_count_serial, &result, p);
 
     if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
         || abortf || parallel_parent_aborted(node)) {
+      // Unmake the move before continuing to next move
+      unmake_move(p, mv);
       continue;
     }
 
@@ -225,6 +231,9 @@ static score_t scout_search(searchNode *node, int depth,
     if (result.type == MOVE_EVALUATED) {
       node->legal_move_count++;
     }
+
+    // Unmake the move before continuing to next move
+    unmake_move(p, mv);
 
     // process the score. Note that this mutates fields in node.
     bool cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);
@@ -242,7 +251,8 @@ static score_t scout_search(searchNode *node, int depth,
   }
 
   if (node->quiescence == false) {
-    update_best_move_history(&(node->position), node->best_move_index,
+    //update_best_move_history(&(node->position), node->best_move_index,
+    update_best_move_history(p, node->best_move_index,
                              move_list, number_of_moves_evaluated);
   }
 
@@ -250,7 +260,8 @@ static score_t scout_search(searchNode *node, int depth,
            node->best_score);
 
   // Reads node->position.key, node->depth, node->best_score, and node->ply
-  update_transposition_table(node);
+  //update_transposition_table(node);
+  update_transposition_table(node, p);
 
   return node->best_score;
 }

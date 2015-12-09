@@ -183,14 +183,16 @@ static void print_move_info(move_t mv, int ply) {
 
 // Evaluates the node before performing a full search.
 //   does a few things differently if in scout search.
-void evaluate_as_leaf(searchNode *node, searchType_t type, leafEvalResult* result) {
+//void evaluate_as_leaf(searchNode *node, searchType_t type, leafEvalResult* result) {
+void evaluate_as_leaf(searchNode *node, searchType_t type, leafEvalResult* result, position_t* p) {
   result->type = MOVE_IGNORE;
   result->score = -INF;
   result->should_enter_quiescence = false;
   result->hash_table_move = 0;
 
   // get transposition table record if available.
-  ttRec_t *rec = tt_hashtable_get(node->position.key);
+  // ttRec_t *rec = tt_hashtable_get(node->position.key);
+  ttRec_t *rec = tt_hashtable_get(p->key);
   if (rec) {
     if (type == SEARCH_SCOUT && tt_is_usable(rec, node->depth, node->beta)) {
       result->type = MOVE_EVALUATED;
@@ -201,7 +203,8 @@ void evaluate_as_leaf(searchNode *node, searchType_t type, leafEvalResult* resul
   }
 
   // stand pat (having-the-move) bonus
-  score_t sps = eval(&(node->position), false) + HMB;
+  // score_t sps = eval(&(node->position), false) + HMB;
+  score_t sps = eval(p, false) + HMB;
   bool quiescence = (node->depth <= 0);  // are we in quiescence?
   result->should_enter_quiescence = quiescence;
   if (quiescence) {
@@ -241,7 +244,8 @@ void evaluate_as_leaf(searchNode *node, searchType_t type, leafEvalResult* resul
 // Evaluate the move by performing a search.
 void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
                   move_t killer_b, searchType_t type,
-                  uint64_t *node_count_serial, moveEvaluationResult* result) {
+                  //uint64_t *node_count_serial, moveEvaluationResult* result) {
+                  uint64_t *node_count_serial, moveEvaluationResult* result, position_t *p) {
   int ext = 0;  // extensions
   bool blunder = false;  // shoot our own piece
 
@@ -249,7 +253,8 @@ void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
   result->next_node.parent = node;
 
   // Make the move, and get any victim pieces.
-  bool isko = make_move(&(node->position), &(result->next_node.position), mv);
+  //bool isko = make_move(&(node->position), &(result->next_node.position), mv);
+  bool isko = make_move(p, mv);
 
   // Check whether this move changes the board state.
   //   such moves are not legal.
@@ -258,7 +263,8 @@ void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
     return;
   }
 
-  victims_t* victims = &result->next_node.position.victims;
+  //victims_t* victims = &result->next_node.position.victims;
+  victims_t* victims = &p->victims;
 
   // Check whether the game is over.
   if (is_game_over(victims, node->pov, node->ply)) {
@@ -275,9 +281,11 @@ void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
   }
 
   // Check whether the board state has been repeated, this results in a draw.
-  if (is_repeated(&(result->next_node.position), node->ply)) {
+  //if (is_repeated(&(result->next_node.position), node->ply)) {
+  if (is_repeated(p, node->ply)) {
     result->type = MOVE_GAMEOVER;
-    result->score = get_draw_score(&(result->next_node.position), node->ply);
+    //result->score = get_draw_score(&(result->next_node.position), node->ply);
+    result->score = get_draw_score(p, node->ply);
     return;
   }
 
@@ -329,7 +337,8 @@ void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
   if (next_reduction > 0) {
     search_depth -= next_reduction;
     int reduced_depth_score = -scout_search(&(result->next_node), search_depth,
-                                            node_count_serial);
+                                            //node_count_serial);
+                                            node_count_serial, p);
     if (reduced_depth_score < node->beta) {
       result->score = reduced_depth_score;
       return;
@@ -347,15 +356,19 @@ void evaluateMove(searchNode *node, move_t mv, move_t killer_a,
 
   if (type == SEARCH_SCOUT) {
     result->score = -scout_search(&(result->next_node), search_depth,
-                                 node_count_serial);
+                                 //node_count_serial);
+                                 node_count_serial, p);
   } else {
     if (node->legal_move_count == 0 || node->quiescence) {
-      result->score = -searchPV(&(result->next_node), search_depth, node_count_serial);
+      //result->score = -searchPV(&(result->next_node), search_depth, node_count_serial);
+      result->score = -searchPV(&(result->next_node), search_depth, node_count_serial, p);
     } else {
       result->score = -scout_search(&(result->next_node), search_depth,
-                            node_count_serial);
+                            //node_count_serial);
+                            node_count_serial, p);
       if (result->score > node->alpha) {
-        result->score = -searchPV(&(result->next_node), node->depth + ext - 1, node_count_serial);
+        //result->score = -searchPV(&(result->next_node), node->depth + ext - 1, node_count_serial);
+        result->score = -searchPV(&(result->next_node), node->depth + ext - 1, node_count_serial, p);
       }
     }
   }
@@ -416,11 +429,14 @@ bool should_abort_check() {
 
 // Obtain a sorted move list.
 static int get_sortable_move_list(searchNode *node, sortable_move_t * move_list,
-                         int hash_table_move) {
+                         //int hash_table_move) {
+                         int hash_table_move, position_t *p) {
   // number of moves in list
-  int num_of_moves = generate_all(&(node->position), move_list, false);
+  // int num_of_moves = generate_all(&(node->position), move_list, false);
+  int num_of_moves = generate_all(p, move_list, false);
 
-  color_t fake_color_to_move = color_to_move_of(&(node->position));
+  //color_t fake_color_to_move = color_to_move_of(&(node->position));
+  color_t fake_color_to_move = color_to_move_of(p);
 
   move_t killer_a = killer[KMT(node->ply, 0)];
   move_t killer_b = killer[KMT(node->ply, 1)];
@@ -437,7 +453,8 @@ static int get_sortable_move_list(searchNode *node, sortable_move_t * move_list,
       ptype_t  pce = ptype_mv_of(mv);
       rot_t    ro  = rot_of(mv);   // rotation
       square_t fs  = from_square(mv);
-      int      ot  = ORI_MASK & (ori_of(node->position.board[fs]) + ro);
+      //int      ot  = ORI_MASK & (ori_of(node->position.board[fs]) + ro);
+      int      ot  = ORI_MASK & (ori_of(p->board[fs]) + ro);
       square_t ts  = to_square(mv);
 
       set_sort_key(&move_list[mv_index],
