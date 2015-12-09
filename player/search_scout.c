@@ -230,6 +230,8 @@ static score_t scout_search(searchNode *node, int depth,
 
 #endif
 
+  simple_acquire(&node_mutex);
+
   if (parallel_parent_aborted(node)) {
     return 0;
   }
@@ -245,6 +247,7 @@ static score_t scout_search(searchNode *node, int depth,
   // Reads node->position.key, node->depth, node->best_score, and node->ply
   update_transposition_table(node);
 
+  simple_release(&node_mutex);
   return node->best_score;
 }
 
