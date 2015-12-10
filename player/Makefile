@@ -29,11 +29,11 @@ ifeq ($(DEBUG),1)
 	LDFLAGS += -O0
 else
 	ifneq ($(FLNO),1)
-	CFLAGS +=  -flto
-	LDFLAGS += -flto
+	CFLAGS +=  -flto -march=native -funroll-loops
+	LDFLAGS += -flto -march=native -funroll-loops
 	endif
-	CFLAGS += -O3 -fcilkplus -DNDEBUG  $(PFLAG)
-	LDFLAGS += -O3
+	CFLAGS += -Ofast -fcilkplus -DNDEBUG  $(PFLAG)
+	LDFLAGS += -Ofast
 endif
 
 ifeq ($(REFERENCE),1)
