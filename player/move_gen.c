@@ -469,9 +469,9 @@ square_t low_level_make_move(position_t *p, move_t mv) {
   //p->ev_score_valid = old->ev_score_valid;
 
   p->ev_score_needs_update = true;
-  p->history = old; !!! // Replace calls to this everywhere.
+  //p->history = old; !!! // Replace calls to this everywhere.
   //p->last_move = mv;
-  p->move_history[p->move_counter++] = mv; !!!
+  p->move_history[p->move_counter++] = mv;
   p->key ^= zob_color;   // swap color to move
 
   tbassert(from_sq < ARR_SIZE && from_sq > 0, "from_sq: %d\n", from_sq);
@@ -582,11 +582,14 @@ square_t fire(position_t *p) {
 
 // Reverse a board to its original state given the move
 // that was performed to get to the current p
-void unmake_move(position_t *p, move_t mv) {
+void unmake_move(position_t *p) {
   // TODO: Remove unnecessary steps in this function
+  move_t mv = p->move_history[--(p->move_counter)]; // Pop move history
 
   // Unzap victims (unmark_pinned) TODO: Expensive? Necessary?
-  // TODO: This is NOT accurate -- undoing a move can bring back pinned pawns! (right?)
+  p->key ^= zob[p->victims.zapped_square][p->victims.zapped & PIECE_MASK]; // replace on board
+  p->board[p->victims.zapped_square] = p->victims.zapped;
+  p->key ^= zob[p->victims.zapped_square][0];
   for (int i = 0; i < ARR_SIZE; ++i) {
     unmark_pinned(&p->board[i]);
   }
@@ -613,35 +616,33 @@ void unmake_move(position_t *p, move_t mv) {
   if (to_sq != from_sq) {  // move, not rotation
 
     // Hash key updates
-    p->key ^= zob[from_sq][from_piece & PIECE_MASK];  // remove from_piece from from_sq
-    p->key ^= zob[to_sq][to_piece & PIECE_MASK];  // remove to_piece from to_sq
+    p->key ^= zob[from_sq][orig_to_piece & PIECE_MASK];  // remove to_piece from from_sq
+    p->key ^= zob[to_sq][orig_from_piece & PIECE_MASK];  // remove from_piece from to_sq
 
-    p->board[to_sq] = from_piece;  // swap from_piece and to_piece on board
-    p->board[from_sq] = to_piece;
+    p->board[to_sq] = orig_to_piece;  // unswap from_piece and to_piece on board
+    p->board[from_sq] = orig_from_piece;
 
-    p->key ^= zob[to_sq][from_piece & PIECE_MASK];  // place from_piece in to_sq
-    p->key ^= zob[from_sq][to_piece & PIECE_MASK];  // place to_piece in from_sq
+    p->key ^= zob[to_sq][orig_to_piece & PIECE_MASK];  // place from_piece in from_sq
+    p->key ^= zob[from_sq][orig_from_piece & PIECE_MASK];  // place to_piece in to_sq
 
-    // Update King locations if necessary
-    if (ptype_of(from_piece) == KING) {
-      p->kloc[color_of(from_piece)] = to_sq;
-    }
-    if (ptype_of(to_piece) == KING) {
-      p->kloc[color_of(to_piece)] = from_sq;
-    }
+    // Update King locations if necessary TODO: How do we undo this???
+//    if (ptype_of(from_piece) == KING) {
+//      p->kloc[color_of(from_piece)] = to_sq;
+//    }
+//    if (ptype_of(to_piece) == KING) {
+//      p->kloc[color_of(to_piece)] = from_sq;
+//    }
 
   } else {  // rotation
-    // remove from_piece from from_sq in hash
-    p->key ^= zob[from_sq][from_piece & PIECE_MASK];
-    set_ori(&from_piece, rot + ori_of(from_piece));  // rotate from_piece
-    p->board[from_sq] = from_piece;  // place rotated piece on board
-    p->key ^= zob[from_sq][from_piece & PIECE_MASK];              // ... and in hash
+    // remove rotated from_piece from from_sq in hash
+    p->key ^= zob[from_sq][orig_from_piece & PIECE_MASK];
+    set_ori(&orig_from_piece, ori_of(orig_from_piece) - rot);  // unrotate from_piece TODO: Is this correct unrotation?
+    p->board[from_sq] = orig_from_piece;  // place unrotated piece on board
+    p->key ^= zob[from_sq][orig_from_piece & PIECE_MASK];
   }
 
-  p->move_counter--; // No need to erase move_history, this essentially pops it
   p->ev_score_needs_update = false; // TODO: What is this?
   p->key ^= zob_color;   // TODO: What is this?
-
 }
 
 // return victim pieces or KO
@@ -650,6 +651,7 @@ void unmake_move(position_t *p, move_t mv) {
 bool make_move(position_t *p, move_t mv) {
   tbassert(mv != 0, "mv was zero.\n");
 
+  uint64_t oldkey = p->key;
   // move phase 1 - moving a piece, which may result in a stomp
   //square_t stomped_sq = low_level_make_move(old, p, mv);
   square_t stomped_sq = low_level_make_move(p, mv);
@@ -680,7 +682,7 @@ bool make_move(position_t *p, move_t mv) {
 
     if (USE_KO &&  // Ko rule
         zero_victims(&p->victims) &&
-        (p->key == (old->key ^ zob_color))) {
+        (p->key == (oldkey ^ zob_color))) {
       return true;  // KO();
     }
   } else {  // we definitely hit something with laser
@@ -702,73 +704,73 @@ bool make_move(position_t *p, move_t mv) {
 
 // helper function for do_perft
 // ply starting with 0
-static uint64_t perft_search(position_t *p, int depth, int ply) {
-  uint64_t node_count = 0;
-  position_t np;
-  sortable_move_t lst[MAX_NUM_MOVES];
-  int num_moves;
-  int i;
-
-  if (depth == 0) {
-    return 1;
-  }
-
-  num_moves = generate_all(p, lst, true);
-
-  if (depth == 1) {
-    return num_moves;
-  }
-
-  for (i = 0; i < num_moves; i++) {
-    move_t mv = get_move(lst[i]);
-
-    square_t stomped_sq = low_level_make_move(p, &np, mv);  // make the move baby!
-
-    if (stomped_sq != 0) {
-      tbassert(ptype_of(np.board[stomped_sq]) == PAWN,
-               "ptype_of(np.board[stomped_sq]): %d\n",
-               ptype_of(np.board[stomped_sq]));
-
-      np.victims.stomped = np.board[stomped_sq];
-      np.key ^= zob[stomped_sq][np.victims.stomped & PIECE_MASK];   // remove from board
-      np.board[stomped_sq] = 0;
-      np.key ^= zob[stomped_sq][0];
-    }
-
-    square_t victim_sq = fire(&np);  // the guy to disappear
-
-    if (victim_sq != 0) {            // hit a piece
-      ptype_t typ = ptype_of(np.board[victim_sq]);
-      tbassert((typ != EMPTY) && (typ != INVALID), "typ: %d\n", typ);
-      if (typ == KING) {  // do not expand further: hit a King
-        node_count++;
-        continue;
-      }
-      np.victims.zapped = np.board[victim_sq];
-      np.victims.zapped_square = victim_sq;  // just in case
-
-      np.key ^= zob[victim_sq][np.victims.zapped & PIECE_MASK];   // remove from board
-      np.board[victim_sq] = 0;
-      np.key ^= zob[victim_sq][0];
-    }
-
-    uint64_t partialcount = perft_search(&np, depth-1, ply+1);
-    node_count += partialcount;
-  }
-
-  return node_count;
-}
-
-// help to verify the move generator
-void do_perft(position_t *gme, int depth, int ply) {
-  fen_to_pos(gme, "");
-
-  for (int d = 1; d <= depth; d++) {
-    printf("perft %2d ", d);
-    uint64_t j = perft_search(gme, d, 0);
-    printf("%" PRIu64 "\n", j);
-  }
-}
+//static uint64_t perft_search(position_t *p, int depth, int ply) {
+//  uint64_t node_count = 0;
+//  position_t np;
+//  sortable_move_t lst[MAX_NUM_MOVES];
+//  int num_moves;
+//  int i;
+//
+//  if (depth == 0) {
+//    return 1;
+//  }
+//
+//  num_moves = generate_all(p, lst, true);
+//
+//  if (depth == 1) {
+//    return num_moves;
+//  }
+//
+//  for (i = 0; i < num_moves; i++) {
+//    move_t mv = get_move(lst[i]);
+//
+//    square_t stomped_sq = low_level_make_move(p, &np, mv);  // make the move baby!
+//
+//    if (stomped_sq != 0) {
+//      tbassert(ptype_of(np.board[stomped_sq]) == PAWN,
+//               "ptype_of(np.board[stomped_sq]): %d\n",
+//               ptype_of(np.board[stomped_sq]));
+//
+//      np.victims.stomped = np.board[stomped_sq];
+//      np.key ^= zob[stomped_sq][np.victims.stomped & PIECE_MASK];   // remove from board
+//      np.board[stomped_sq] = 0;
+//      np.key ^= zob[stomped_sq][0];
+//    }
+//
+//    square_t victim_sq = fire(&np);  // the guy to disappear
+//
+//    if (victim_sq != 0) {            // hit a piece
+//      ptype_t typ = ptype_of(np.board[victim_sq]);
+//      tbassert((typ != EMPTY) && (typ != INVALID), "typ: %d\n", typ);
+//      if (typ == KING) {  // do not expand further: hit a King
+//        node_count++;
+//        continue;
+//      }
+//      np.victims.zapped = np.board[victim_sq];
+//      np.victims.zapped_square = victim_sq;  // just in case
+//
+//      np.key ^= zob[victim_sq][np.victims.zapped & PIECE_MASK];   // remove from board
+//      np.board[victim_sq] = 0;
+//      np.key ^= zob[victim_sq][0];
+//    }
+//
+//    uint64_t partialcount = perft_search(&np, depth-1, ply+1);
+//    node_count += partialcount;
+//  }
+//
+//  return node_count;
+//}
+//
+//// help to verify the move generator
+//void do_perft(position_t *gme, int depth, int ply) {
+//  fen_to_pos(gme, "");
+//
+//  for (int d = 1; d <= depth; d++) {
+//    printf("perft %2d ", d);
+//    uint64_t j = perft_search(gme, d, 0);
+//    printf("%" PRIu64 "\n", j);
+//  }
+//}
 
 void display(position_t *p) {
   char buf[MAX_CHARS_IN_MOVE];

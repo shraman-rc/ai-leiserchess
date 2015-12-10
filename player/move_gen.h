@@ -146,7 +146,11 @@ typedef struct victims_t {
 #define NO_EV_SCORE -128
 typedef struct position {
   piece_t      board[ARR_SIZE];
-  struct position  *history;     // history of position
+
+  //struct position  *history;     // history of position
+  move_t       move_history[MAX_NUM_MOVES];   // replace board history
+  int8_t       move_counter;
+
   uint64_t     key;              // hash key
   uint16_t     ply;              // Even ply are White, odd are Black
   move_t       last_move;        // move that led to this position
@@ -194,9 +198,12 @@ void move_to_str(move_t mv, char *buf, size_t bufsize);
 int generate_all(position_t *p, sortable_move_t *sortable_move_list,
                  bool strict);
 
-void do_perft(position_t *gme, int depth, int ply);
-square_t low_level_make_move(position_t *old, position_t *p, move_t mv);
-bool make_move(position_t *old, position_t *p, move_t mv);
+//void do_perft(position_t *gme, int depth, int ply);
+//square_t low_level_make_move(position_t *old, position_t *p, move_t mv);
+square_t low_level_make_move(position_t *p, move_t mv);
+//bool make_move(position_t *old, position_t *p, move_t mv);
+bool make_move(position_t *p, move_t mv);
+void unmake_move(position_t *p);
 void display(position_t *p);
 uint64_t compute_zob_key(position_t *p);
 

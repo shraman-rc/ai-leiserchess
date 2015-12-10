@@ -154,10 +154,13 @@ victims_t make_from_string(position_t *old, position_t *p,
   if (mv == 0) {
     return ILLEGAL();
   } else {
-    if (make_move(old, p, mv)) {
+    //if (make_move(old, p, mv)) {
+    if (make_move(old, mv)) {
+      *p = *old; // TODO: Remove
       return KO();
     } else {
-      return p->victims;
+      *p = *old; // TODO: Remove
+      return old->victims;
     }
   }
 }
@@ -696,7 +699,7 @@ int main(int argc, char *argv[]) {
         if (token_count >= 2) {  // Takes a depth argument to test deeper
           depth = strtol(tok[1], (char **)NULL, 10);
         }
-        do_perft(gme, depth, 0);
+        // do_perft(gme, depth, 0);
         continue;
       }
 

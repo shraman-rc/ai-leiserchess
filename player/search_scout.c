@@ -62,7 +62,7 @@ static score_t scout_search(searchNode *node, int depth,
   // Pre-evaluate this position.
   leafEvalResult pre_evaluation_result;
   //evaluate_as_leaf(node, SEARCH_SCOUT, &pre_evaluation_result);
-  evaluate_as_leaf(node, SEARCH_SCOUT, &pre_evaluation_result, position_t *p);
+  evaluate_as_leaf(node, SEARCH_SCOUT, &pre_evaluation_result, p);
 
   // If we decide to stop searching, return the pre-evaluation score.
   if (pre_evaluation_result.type == MOVE_EVALUATED) {
@@ -222,7 +222,7 @@ static score_t scout_search(searchNode *node, int depth,
     if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
         || abortf || parallel_parent_aborted(node)) {
       // Unmake the move before continuing to next move
-      unmake_move(p, mv);
+      unmake_move(p);
       continue;
     }
 
@@ -233,7 +233,7 @@ static score_t scout_search(searchNode *node, int depth,
     }
 
     // Unmake the move before continuing to next move
-    unmake_move(p, mv);
+    unmake_move(p);
 
     // process the score. Note that this mutates fields in node.
     bool cutoff = search_process_score(node, mv, local_index, &result, SEARCH_SCOUT);

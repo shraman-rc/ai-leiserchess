@@ -72,18 +72,27 @@ move_t get_move(sortable_move_t sortable_mv) {
 }
 
 static score_t get_draw_score(position_t *p, int ply) {
-  position_t *x = p->history;
+  if (p->move_counter == 0) {
+    return (score_t) 0;
+  }
+  //position_t *x = p->history;
+  unmake_move(p);
   uint64_t cur = p->key;
   score_t score;
-  while (true) {
-    if (!zero_victims(&x->victims)) {
+  //while (true) {
+  while (p->move_counter > 0) {
+    //if (!zero_victims(&x->victims)) {
+    if (!zero_victims(&p->victims)) {
       break;  // cannot be a repetition
     }
-    x = x->history;
-    if (!zero_victims(&x->victims)) {
+    //x = x->history;
+    unmake_move(p);
+    //if (!zero_victims(&x->victims)) {
+    if (p->move_counter == 0 || !zero_victims(&p->victims)) {
       break;  // cannot be a repetition
     }
-    if (x->key == cur) {  // is a repetition
+    //if (x->key == cur) {  // is a repetition
+    if (p->key == cur) {  // is a repetition
       if (ply & 1) {
         score = -DRAW;
       } else {
@@ -91,7 +100,8 @@ static score_t get_draw_score(position_t *p, int ply) {
       }
       return score;
     }
-    x = x->history;
+    //x = x->history;
+    unmake_move(p);
   }
   assert(false);  // This should not occur.
   return (score_t) 0;
@@ -104,22 +114,38 @@ static bool is_repeated(position_t *p, int ply) {
   if (!DETECT_DRAWS) {
     return false;  // no draw detected
   }
+  if (p->move_counter == 0) {
+    return false;
+  }
 
-  position_t *x = p->history;
+  int8_t moves_unmade_cnt = 0; // Used to reset the board
+  // position_t *x = p->history;
+  unmake_move(p); moves_unmade_cnt++;
   uint64_t cur = p->key;
 
-  while (true) {
-    if (!zero_victims(&x->victims)) {
+  //while (true) {
+  while (p->move_counter > 0) {
+    //if (!zero_victims(&x->victims)) {
+    if (!zero_victims(&p->victims)) {
       break;  // cannot be a repetition
     }
-    x = x->history;
-    if (!zero_victims(&x->victims)) {
+    //x = x->history;
+    unmake_move(p); moves_unmade_cnt++;
+    //if (!zero_victims(&x->victims)) {
+    if (p->move_counter == 0 || !zero_victims(&p->victims)) {
       break;  // cannot be a repetition
     }
-    if (x->key == cur) {  // is a repetition
+    //if (x->key == cur) {  // is a repetition
+    if (p->key == cur) {  // is a repetition
       return true;
     }
-    x = x->history;
+    //x = x->history;
+    unmake_move(p); moves_unmade_cnt++;
+  }
+
+  // Restore 'p'
+  for(int i = 0; i < moves_unmade_cnt; ++i) {
+    make_move(p, p->move_history[p->move_counter++]);
   }
   return false;
 }

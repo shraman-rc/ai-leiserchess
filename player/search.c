@@ -65,9 +65,9 @@ int FUT_DEPTH;     // set to zero for no futilty
 
 // Declare the two main search functions.
 static score_t searchPV(searchNode *node, int depth,
-                        uint64_t *node_count_serial);
+                        uint64_t *node_count_serial, position_t *p);
 static score_t scout_search(searchNode *node, int depth,
-                            uint64_t *node_count_serial);
+                            uint64_t *node_count_serial, position_t *p);
 
 // Include common search functions
 #include "./search_globals.c"
@@ -166,7 +166,7 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
     if (result.type == MOVE_ILLEGAL || result.type == MOVE_IGNORE
         || abortf || parallel_parent_aborted(node)) {
       // Unmake the move before continuing to next move
-      unmake_move(p, mv);
+      unmake_move(p);
       continue;
     }
 
@@ -182,7 +182,7 @@ static score_t searchPV(searchNode *node, int depth, uint64_t *node_count_serial
     }
 
     // Unmake the move before continuing to next move
-    unmake_move(p, mv);
+    unmake_move(p);
 
     bool cutoff = search_process_score(node, mv, mv_index, &result, SEARCH_PV);
     if (cutoff) {
@@ -276,7 +276,7 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
     bool isko = make_move(&(rootNode.position), mv);
     if (isko) {
       // Unmake the move before continuing to next move
-      unmake_move(&(rootNode.position), mv);
+      unmake_move(&(rootNode.position));
       continue;  // not a legal move
     }
 
@@ -361,7 +361,7 @@ score_t searchRoot(position_t *p, score_t alpha, score_t beta, int depth,
     }
 
     // Unmake the move before continuing to next move
-    unmake_move(&(rootNode.position), mv);
+    unmake_move(&(rootNode.position));
 
     // Normal alpha-beta logic: if the current score is better than what the
     // maximizer has been able to get so far, take that new value.  Likewise,

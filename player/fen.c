@@ -314,26 +314,26 @@ static int get_sq_from_str(char *fen, int *c_count, int *sq) {
 // Translate a fen string into a board position struct
 //
 int fen_to_pos(position_t *p, char *fen) {
-  static  position_t dmy1, dmy2;
-
-  // these sentinels simplify checking previous
-  // states without stepping past null pointers.
-  dmy1.key = 0;
-  dmy1.victims.stomped = 1;
-  dmy1.victims.zapped = 1;
-  dmy1.history = NULL;
-
-  dmy2.key = 0;
-  dmy2.victims.stomped = 1;
-  dmy2.victims.zapped = 1;
-  dmy2.history = &dmy1;
-
-
-  p->key = 0;          // hash key
-  p->victims.stomped = 0;       // piece destroyed by stomper
-  p->victims.zapped = 0;       // piece destroyed by shooter
-  p->history = &dmy2;  // history
-  p->ev_score_valid = false;
+//  static  position_t dmy1, dmy2;
+//
+//  // these sentinels simplify checking previous
+//  // states without stepping past null pointers.
+//  dmy1.key = 0;
+//  dmy1.victims.stomped = 1;
+//  dmy1.victims.zapped = 1;
+//  dmy1.history = NULL;
+//
+//  dmy2.key = 0;
+//  dmy2.victims.stomped = 1;
+//  dmy2.victims.zapped = 1;
+//  dmy2.history = &dmy1;
+//
+//
+//  p->key = 0;          // hash key
+//  p->victims.stomped = 0;       // piece destroyed by stomper
+//  p->victims.zapped = 0;       // piece destroyed by shooter
+//  p->history = &dmy2;  // history
+//  p->ev_score_valid = false;
 
   if (fen[0] == '\0') {  // Empty FEN => use starting position
     fen = "ss3nw5/3nw2nw3/2nw7/1nw6SE1/nw9/9SE/1nw6SE1/7SE2/3SE2SE3/5SE3NN W";
