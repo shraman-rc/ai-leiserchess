@@ -29,8 +29,8 @@ ifeq ($(DEBUG),1)
 	LDFLAGS += -O0
 else
 	ifneq ($(FLNO),1)
-	CFLAGS +=  -flto -march=native -funroll-loops
-	LDFLAGS += -flto -march=native -funroll-loops
+	CFLAGS +=  -flto -march=corei7-avx -mabm -maes -mpclmul -mpopcnt -mrdrnd -msahf -msse -msse2 -msse4 -mssse3 -funroll-loops
+	LDFLAGS += -flto -march=corei7-avx -mabm -maes -mpclmul -mpopcnt -mrdrnd -msahf -msse -msse2 -msse4 -mssse3 -funroll-loops
 	endif
 	CFLAGS += -Ofast -fcilkplus -DNDEBUG  $(PFLAG)
 	LDFLAGS += -Ofast
